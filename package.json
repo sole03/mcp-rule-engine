@@ -11,7 +11,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "license:check": "license-checker-and-fixer --check",
+    "license:fix": "license-checker-and-fixer --fix"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

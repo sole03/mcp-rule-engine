@@ -1,0 +1,25 @@
+{
+  "license": "Apache-2.0",
+  "copyrightHolder": "Copyright 2026 熊高锐",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "scripts/**/*.ts",
+    "scripts/**/*.js",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "dist/**",
+    "build/**",
+    "node_modules/**",
+    "coverage/**",
+    "**/*.md",
+    "**/*.json",
+    "**/*.yaml",
+    "**/*.yml",
+    "**/*.css",
+    "**/*.html",
+    "LICENSE",
+    "TRADEMARK.md"
+  ]
+}

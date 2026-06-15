@@ -109,16 +109,36 @@ export class RuleRepo {
     return rows.map(toRule);
   }
 
+  /** Update a rule's pattern, suggestion, and/or category. Returns the updated rule. */
+  async updateContent(id: string, data: { pattern?: string; suggestion?: string; category?: string }): Promise<Rule> {
+    const prisma = getPrismaClient();
+    const r = await prisma.rule.update({
+      where: { id },
+      data: {
+        ...(data.pattern !== undefined && { pattern: data.pattern }),
+        ...(data.suggestion !== undefined && { suggestion: data.suggestion }),
+        ...(data.category !== undefined && { category: data.category }),
+      },
+    });
+    return toRule(r);
+  }
+
   async queryByMatch(language: string, fileExtension: string, projectId?: string, tags?: string[]): Promise<Rule[]> {
     const prisma = getPrismaClient();
-    const where: Prisma.RuleWhereInput = {
-      status: "active",
-      OR: [{ language: "*" }, { language }],
-    };
+    const conditions: Prisma.RuleWhereInput[] = [
+      { status: "active" },
+      { OR: [{ language: "*" }, { language }] },
+    ];
     if (fileExtension) {
-      where.fileExtensions = { contains: fileExtension.replace(".", "") };
+      const ext = fileExtension.replace(".", "");
+      conditions.push({
+        OR: [
+          { fileExtensions: null },
+          { fileExtensions: { contains: ext } },
+        ],
+      });
     }
-    const rows = await prisma.rule.findMany({ where, orderBy: { priority: "desc" } });
+    const rows = await prisma.rule.findMany({ where: { AND: conditions }, orderBy: { priority: "desc" } });
     return rows.map(toRule);
   }
 

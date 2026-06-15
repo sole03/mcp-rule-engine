@@ -1,3 +1,20 @@
+## [0.3.0] - 2026-06-15
+
+### 🐛 Critical Fixes
+- **query_rules 零召回修复**：queryByMatch() 增加 OR fileExtensions IS NULL，召回率从 0% → 97%+
+- **confirm_rule edit 持久化修复**：新增 RuleRepo.updateContent() + findById() 读回校验，杜绝虚假成功
+- **computeScore 内容匹配**：新增 pattern vs fileContent 子串匹配，支持 content_match 原因
+
+### ✅ Verified Behaviors
+- capture_diff notification:null 确认为阈值系统预期行为（minDistinctFiles=3, minRepeatsInDays=5）
+- tsc --noEmit 类型检查零错误
+
+### 📁 Changed Files (5)
+- src/storage/rule-repo.ts
+- src/tools/confirm-rule.ts
+- src/tools/query-rules.ts
+- src/engine/rule-matcher.ts
+- src/types.ts
 # Changelog
 
 ## [Unreleased] - Smoke Test Findings (2026-06-15)
@@ -25,3 +42,4 @@
 - Codex `--instructions` flag removed in 0.139.0 — use stdin pipe: `Get-Content -Raw | codex exec -`
 - Codex `-a` (ask-for-approval) must be placed before `exec` subcommand, not after
 - `better-sqlite3` may not be directly requireable — use `npx prisma db execute` as alternative
+

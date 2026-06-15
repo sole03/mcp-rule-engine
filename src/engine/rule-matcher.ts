@@ -10,6 +10,7 @@ export function computeScore(rule: Rule, context: MatchContext): number {
   const timeValue = Math.exp(-timeDecayLambda * hoursSinceCreation);
   let matchValue = 0;
   const path = context.filePath.toLowerCase();
+  const content = context.fileContent?.toLowerCase() ?? "";
   const contextTags = context.ruleTags ?? [];
   if (rule.tags) {
     for (const tag of rule.tags) {
@@ -17,6 +18,13 @@ export function computeScore(rule: Rule, context: MatchContext): number {
     }
     for (const tag of contextTags) {
       if (rule.tags.some(t => t.toLowerCase() === tag.toLowerCase())) matchValue += 1;
+    }
+  }
+  // Content-based pattern matching: if rule pattern appears in file content, strong signal
+  if (content && rule.pattern) {
+    const patternLower = rule.pattern.toLowerCase();
+    if (content.includes(patternLower)) {
+      matchValue += 2;
     }
   }
   const priorityBonus = SCOPE_PRIORITIES[rule.scope ?? "project"] ?? 0.5;
@@ -34,6 +42,10 @@ export function matchRules(rules: Rule[], context: MatchContext, options: MatchO
     const matchReasons: string[] = [];
     if (rule.language === context.language || rule.language === "*") matchReasons.push("language_match");
     if (rule.tags?.some(t => context.filePath.toLowerCase().includes(t.toLowerCase()))) matchReasons.push("path_match");
+    // New match reason for content-based pattern matching
+    if (context.fileContent && rule.pattern && context.fileContent.toLowerCase().includes(rule.pattern.toLowerCase())) {
+      matchReasons.push("content_match");
+    }
     return { rule, score, matchReasons };
   }).filter(s => s.score > 0);
   scored.sort((a, b) => b.score - a.score);

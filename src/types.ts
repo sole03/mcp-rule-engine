@@ -74,6 +74,8 @@ export interface MatchContext {
   projectId?: string;
   ruleTags?: string[];
   currentTime?: Date;
+  /** Optional file content for pattern matching. If empty, content-based matching is skipped. */
+  fileContent?: string;
 }
 
 export interface ScoredRule {

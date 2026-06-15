@@ -17,3 +17,17 @@ export async function disconnectPrisma(): Promise<void> {
     client = null;
   }
 }
+
+/**
+ * Reset the Prisma client singleton, optionally with a new DATABASE_URL.
+ * Used by vitest setup to give each worker an isolated database file,
+ * preventing cross-worker FK race conditions.
+ * Calling with no URL re-creates the client with the current env var value.
+ */
+export async function resetPrismaClient(databaseUrl?: string): Promise<PrismaClient> {
+  await disconnectPrisma();
+  if (databaseUrl !== undefined) {
+    process.env.DATABASE_URL = databaseUrl;
+  }
+  return getPrismaClient();
+}

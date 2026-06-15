@@ -32,7 +32,7 @@ afterAll(async () => {
 
 // ── createNodeWithEdges ────────────────────────────────────
 
-describe("createNodeWithEdges", () => {
+describe.sequential("createNodeWithEdges", () => {
   it("creates a node without edges", async () => {
     const hash = computeSemanticHash("INTENT", { rule: "test" });
     const node = await repo.createNodeWithEdges({
@@ -99,7 +99,7 @@ describe("createNodeWithEdges", () => {
 
 // ── findNodesBySemanticHash ─────────────────────────────────
 
-describe("findNodesBySemanticHash", () => {
+describe.sequential("findNodesBySemanticHash", () => {
   it("finds node by semantic hash", async () => {
     const hash = computeSemanticHash("INTENT", { name: "unique" });
     await repo.createNodeWithEdges({
@@ -137,7 +137,7 @@ describe("findNodesBySemanticHash", () => {
 
 // ── getSubgraph ─────────────────────────────────────────────
 
-describe("getSubgraph", () => {
+describe.sequential("getSubgraph", () => {
   /** Build a chain: n1 → n2 → n3 → n4 */
   async function buildChain(): Promise<{ ids: string[]; nodes: CognitionNodeData[] }> {
     const ids: string[] = [];
@@ -234,7 +234,7 @@ describe("getSubgraph", () => {
 
 // ── updateEdgeWeight ───────────────────────────────────────
 
-describe("updateEdgeWeight", () => {
+describe.sequential("updateEdgeWeight", () => {
  it("increases weight", async () => {
    const n1 = await repo.createNodeWithEdges({
      type: COGNITION_TYPES.INTENT,
@@ -255,8 +255,7 @@ describe("updateEdgeWeight", () => {
    );
    // Find the edge via subgraph
    const sub = await repo.getSubgraph(n1.id, 1);
-    if (sub.edges.length === 0) return; // FK may prevent edge creation
-   const edgeId = sub.edges[0].id;
+  const edgeId = sub.edges[0].id;
    const updated = await repo.updateEdgeWeight(edgeId, 0.5);
    expect(updated.weight).toBe(1.5);
  });
@@ -292,7 +291,7 @@ describe("updateEdgeWeight", () => {
 
 // ── createAstTemplate ──────────────────────────────────────
 
-describe("createAstTemplate", () => {
+describe.sequential("createAstTemplate", () => {
   it("creates template linked to node", async () => {
     const node = await repo.createNodeWithEdges({
       type: COGNITION_TYPES.PATTERN,
@@ -330,7 +329,7 @@ describe("createAstTemplate", () => {
 
 // ── Performance: 100+ nodes ────────────────────────────────
 
-describe("performance: 100+ node subgraph", () => {
+describe.sequential("performance: 100+ node subgraph", () => {
   it("traverses 100+ node graph within acceptable time", async () => {
     const nodeIds: string[] = [];
     // Create a chain of 100 nodes
@@ -361,7 +360,7 @@ describe("performance: 100+ node subgraph", () => {
 
 // ── computeSemanticHash ────────────────────────────────────
 
-describe("computeSemanticHash", () => {
+describe.sequential("computeSemanticHash", () => {
   it("produces same hash for same input", () => {
     const a = computeSemanticHash("INTENT", { x: 1, y: 2 });
     const b = computeSemanticHash("INTENT", { y: 2, x: 1 }); // different key order

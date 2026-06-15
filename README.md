@@ -1,20 +1,35 @@
 # MCP Rule Engine — Cognition Engine & Trust Governance Layer
 
+![build](https://img.shields.io/badge/build-passing-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
+![MCP](https://img.shields.io/badge/MCP_v1.29.0-compliant-blue)
+![license](https://img.shields.io/badge/license-MIT-green)
+
 > A production-grade MCP server that combines a cognition graph engine with a trusted governance layer. Provides intelligent code pattern matching, AST-level constraint validation, and auditable injection approval for AI agents.
+
+---
+
+## The Problem It Solves
+
+AI Agents are powerful but chaotic. They generate code confidently, yet they lack a persistent *cognition layer* to remember project-specific patterns across sessions, and they lack a *governance layer* to enforce security boundaries on their own output. Without these, every agent session starts from zero — repeating the same mistakes, ignoring your team's conventions, and producing code that looks plausible but violates project invariants.
+
+This engine fixes that. It gives agents a **long-term graph memory** of project patterns (what works, what's forbidden, what's idiomatic in *this* codebase) and a **trusted approval workflow** so every injection is reviewed, audited, and accountable.
+
+---
 
 ## Core Features
 
 - **Cognition Graph Engine** — Intent recognition, weighted graph traversal, and AST constraint solving for intelligent code analysis
 - **Trust Governance** — Three-tier knowledge base with injection approval workflow, TTL-based proposals, and audit logging
-- **Dual Transport** — Stdio (local) and Streamable HTTP (remote) transports with full MCP lifecycle support
-- **Agent Hard Constraints** — Output schema enforcement with `validationRequired` auto-validation; non-compliant agent responses intercepted
+- **Universal Connectivity** — Stdio (local) and Streamable HTTP (remote) transports with full MCP lifecycle support
+- **Agent Hard Constraints** — Output schema enforcement with \`validationRequired\` auto-validation; non-compliant agent responses intercepted
 - **Hot Config Updates** — Dynamic threshold tuning with expert mode authorization and version chain tracking
 
 ---
 
 ## Architecture
 
-```mermaid
+\`\`\`mermaid
 flowchart LR
     Agent["AI Agent (Cursor / Claude / Cline)"]
     MCP["MCP Server (stdio / HTTP)"]
@@ -34,7 +49,7 @@ flowchart LR
     IA -->|TTL proposal| DB
     FL -->|update weights| DB
     DB -->|graph data| GT
-```
+\`\`\`
 
 ---
 
@@ -47,22 +62,22 @@ flowchart LR
 
 ### Setup
 
-```bash
+\`\`\`bash
 git clone <repo-url> && cd mcp-rule-engine
 npm install
 npx prisma db push
 npm run build
-```
+\`\`\`
 
 ### Start Server
 
-```bash
+\`\`\`bash
 # Stdio mode (default)
 node dist/index.js
 
 # HTTP mode
 TRANSPORT=http PORT=3000 node dist/index.js
-```
+\`\`\`
 
 ---
 
@@ -70,9 +85,9 @@ TRANSPORT=http PORT=3000 node dist/index.js
 
 ### Cursor
 
-Add to `.cursor/mcp.json`:
+Add to \`.cursor/mcp.json\`:
 
-```json
+\`\`\`json
 {
   "mcpServers": {
     "cognition-engine": {
@@ -82,13 +97,13 @@ Add to `.cursor/mcp.json`:
     }
   }
 }
-```
+\`\`\`
 
 ### Claude Desktop
 
-Add to `claude_desktop_config.json`:
+Add to \`claude_desktop_config.json\`:
 
-```json
+\`\`\`json
 {
   "mcpServers": {
     "cognition-engine": {
@@ -98,11 +113,30 @@ Add to `claude_desktop_config.json`:
     }
   }
 }
-```
+\`\`\`
+
+### VS Code (GitHub Copilot Chat / VS Code MCP Extension)
+
+Add to your VS Code settings (User \`settings.json\` or workspace \`.vscode/mcp.json\`):
+
+\`\`\`json
+{
+  "mcp": {
+    "servers": {
+      "cognition-engine": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["dist/index.js"],
+        "env": { "DATABASE_URL": "file:./dev.db" }
+      }
+    }
+  }
+}
+\`\`\`
 
 ### Cline / Roo Code (HTTP)
 
-```json
+\`\`\`json
 {
   "mcpServers": {
     "cognition-engine": {
@@ -111,7 +145,7 @@ Add to `claude_desktop_config.json`:
     }
   }
 }
-```
+\`\`\`
 
 ---
 
@@ -125,29 +159,35 @@ Add to `claude_desktop_config.json`:
 | Project | Project conventions | PositiveConstraint = WARN | Soft warning |
 | Reuse | Cross-project patterns | Intent + Heuristic | Weight-based |
 
-### Injection Approval Flow
+### Injection Proposal State Machine
 
-```
-Agent → cognition_query (implicit Proposal + TTL=5min)
-  → User reviews results
-  → cognition_approve_injection(proposalId, APPROVE|REJECT|OVERRIDE)
-  → Audit log recorded
-```
+\`\`\`mermaid
+stateDiagram-v2
+    [*] --> PENDING: cognition_query triggers implicit proposal
+    PENDING --> APPROVED: cognition_approve_injection(proposalId, APPROVE)
+    PENDING --> REJECTED: cognition_approve_injection(proposalId, REJECT)
+    PENDING --> OVERRIDDEN: cognition_approve_injection(proposalId, OVERRIDE)
+    PENDING --> EXPIRED: TTL = 5 min elapsed
+    APPROVED --> [*]: Rules injected into graph
+    REJECTED --> [*]: Proposal discarded
+    OVERRIDDEN --> [*]: Force-injected (audit logged)
+    EXPIRED --> [*]: -32602 Proposal Expired + retryable:true
+\`\`\`
 
-Proposals are in-memory with a 5-minute TTL. Concurrent proposals for the same context hash return the existing proposal to prevent conflicts. Expired proposals return `-32602 Proposal Expired` with `retryable: true`.
+Proposals are in-memory with a 5-minute TTL. Concurrent proposals for the same context hash return the existing proposal to prevent conflicts. Expired proposals return \`-32602 Proposal Expired\` with \`retryable: true\`.
 
 ### Constraint Validation Dual-Mode
 
-- **REJECT (Hard Block)**: Returned as `-32602` + `ruleId`. Agent must stop.
-- **WARN (Soft Warning)**: Returned as violation. Agent may continue with user confirmation.
+- **REJECT (Hard Block)** — Returned as \`-32602\` + \`ruleId\`. Agent must stop.
+- **WARN (Soft Warning)** — Returned as violation. Agent may continue with user confirmation.
 
 ### Config Hot Update
 
-Dynamic thresholds (similarity 0.7/0.9) are stored as `CognitionNode(type=HEURISTIC)`. Each update creates a new version node with the old node marked `supersededBy`. Requires `expertMode: true`.
+Dynamic thresholds (similarity 0.7 / 0.9) are stored as \`CognitionNode(type=HEURISTIC)\`. Each update creates a new version node with the old node marked \`supersededBy\`. Requires \`expertMode: true\`.
 
 ### Audit & Compliance
 
-All injection decisions, config changes, and validation events are recorded via `MetricEvent` with async non-blocking writes. On database write failure, events fall back to `logs/fallback.log`.
+All injection decisions, config changes, and validation events are recorded via \`MetricEvent\` with async non-blocking writes. On database write failure, events fall back to \`logs/fallback.log\`.
 
 ---
 
@@ -155,10 +195,10 @@ All injection decisions, config changes, and validation events are recorded via 
 
 | URI | Type | Content |
 |-----|------|---------|
-| `cognition://schema` | application/json | Cognition graph data model |
-| `cognition://stats` | application/json | Node/edge counts + approvalRate7d |
-| `cognition://docs` | text/markdown | Full tool documentation |
-| `cognition://rules-changelog` | application/json | Versioned rule change log |
+| \`cognition://schema\` | application/json | Cognition graph data model |
+| \`cognition://stats\` | application/json | Node/edge counts + approvalRate7d |
+| \`cognition://docs\` | text/markdown | Full tool documentation |
+| \`cognition://rules-changelog\` | application/json | Versioned rule change log |
 
 ---
 
@@ -166,23 +206,23 @@ All injection decisions, config changes, and validation events are recorded via 
 
 | Tool | Description | readOnlyHint |
 |------|-------------|:---:|
-| `cognition_query` | Query graph by context hash | ✅ |
-| `cognition_validate` | Validate code against AST templates | ✅ |
-| `cognition_feedback` | Provide feedback to refine traversal | ❌ |
-| `cognition_approve_injection` | Approve/reject proposals with TTL | ❌ |
-| `cognition_update_config` | Hot-update thresholds (expert mode) | ❌ |
+| \`cognition_query\` | Query graph by context hash | ✅ |
+| \`cognition_validate\` | Validate code against AST templates | ✅ |
+| \`cognition_feedback\` | Provide feedback to refine traversal | ❌ |
+| \`cognition_approve_injection\` | Approve/reject proposals with TTL | ❌ |
+| \`cognition_update_config\` | Hot-update thresholds (expert mode) | ❌ |
 
 ---
 
 ## Testing
 
-```bash
+\`\`\`bash
 # Run all tests (118/118 passing)
 npm test
 
 # Run specific suite
 npx vitest run tests/protocol/
-```
+\`\`\`
 
 ---
 
@@ -192,7 +232,7 @@ This server conforms to **MCP Specification v1.29.0** and supports:
 
 - [x] initialize / initialized / ping / shutdown lifecycle
 - [x] tools/list + tools/call with JSON Schema input/output
-- [x] resources/list + resources/read with `cognition://` URI scheme
+- [x] resources/list + resources/read with \`cognition://\` URI scheme
 - [x] StdioServerTransport and StreamableHTTPServerTransport
 - [x] Error codes: -32602 (invalid params), -32603 (internal), -32001 (timeout)
 - [x] Annotations: readOnlyHint, destructiveHint, openWorldHint

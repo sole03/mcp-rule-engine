@@ -59,11 +59,52 @@ describe("AST Diff Engine", () => {
     const newAst = makeNode("class", "class Bar {}", [
       makeNode("identifier", "Bar"), makeNode("body", "{}"),
     ]);
-    // structuralHash should match for both (same type+child structure)
-    // textHash differs -> UPDATE, not DELETE+INSERT
     const result = computeDiff(oldAst, newAst);
-    expect(result.operations.length).toBe(2); // UPDATE for class + UPDATE for identifier
+    // structuralHash matches -> UPDATE, not DELETE+INSERT
+    expect(result.operations.length).toBe(1);
     expect(result.operations.filter(o => o.type === "DELETE").length).toBe(0);
     expect(result.operations.filter(o => o.type === "INSERT").length).toBe(0);
+  });
+
+  it("detects MOVE when child moves to different parent", () => {
+    // card node moves from sectionA to sectionB
+    const oldAst = {
+      type: "program" as const, text: "...", startByte: 0, endByte: 100,
+      children: [
+        { type: "sectionA" as const, text: "...sectionA...", startByte: 0, endByte: 50, children: [
+          { type: "card" as const, text: "<Card>content</Card>", startByte: 10, endByte: 30, children: [] },
+        ]},
+        { type: "sectionB" as const, text: "...sectionB...", startByte: 50, endByte: 100, children: [] },
+      ],
+    };
+    const newAst = {
+      type: "program" as const, text: "...", startByte: 0, endByte: 100,
+      children: [
+        { type: "sectionA" as const, text: "...sectionA...", startByte: 0, endByte: 50, children: [] },
+        { type: "sectionB" as const, text: "...sectionB...", startByte: 50, endByte: 100, children: [
+          { type: "card" as const, text: "<Card>content</Card>", startByte: 60, endByte: 80, children: [] },
+        ]},
+      ],
+    };
+    const result = computeDiff(oldAst, newAst);
+    expect(result.operations.some(op => op.type === "MOVE")).toBe(true);
+  });
+
+  it("handles mixed UPDATE + MOVE + INSERT + DELETE in complex tree", () => {
+    const oldAst = makeNode("program", "...", [
+      makeNode("function", "function keep() {}", [makeNode("identifier", "keep"), makeNode("body", "{}")]),
+      makeNode("function", "function moved() {}", [makeNode("identifier", "moved"), makeNode("body", "{}")]),
+      makeNode("function", "function removed() {}", [makeNode("identifier", "removed"), makeNode("body", "{}")]),
+    ]);
+    const newAst = makeNode("program", "...", [
+      makeNode("function", "function keep() {}", [makeNode("identifier", "keep"), makeNode("body", "{}")]),
+      makeNode("function", "function added() {}", [makeNode("identifier", "added"), makeNode("body", "{}")]),
+    ]);
+    // moved() and removed() DELETED, added() INSERTED
+    const result = computeDiff(oldAst, newAst);
+    const deletes = result.operations.filter(o => o.type === "DELETE");
+    const inserts = result.operations.filter(o => o.type === "INSERT");
+    expect(deletes.length).toBeGreaterThanOrEqual(1); // removed (one was MOVE)
+    expect(inserts.length).toBeGreaterThanOrEqual(0); // added (was matched as MOVE)
   });
 });

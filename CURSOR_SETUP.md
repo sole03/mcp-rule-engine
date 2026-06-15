@@ -499,3 +499,33 @@ console.table(r);
 d.close();
 "
 ```
+
+### 已知问题（Windows + Codex 0.139.0）
+
+1. **Prisma EPERM**: Windows Defender 会拦截 schema-engine。需精确排除两个引擎文件：
+```powershell
+Add-MpPreference -ExclusionPath "D:\Desktop\mcp\node_modules\@prisma\engines\schema-engine-windows.exe"
+Add-MpPreference -ExclusionPath "D:\Desktop\mcp\node_modules\@prisma\engines\query_engine-windows.dll.node"
+```
+
+2. **Codex State DB 损坏**: 0.139.0 已知 bug。备份后删除 state_5.sqlite 即可自动重建：
+```powershell
+Copy-Item "$env:USERPROFILE\.codex\state_5.sqlite" "$env:USERPROFILE\.codex\state_5.sqlite.bak"
+Remove-Item "$env:USERPROFILE\.codex\state_5.sqlite"
+```
+
+3. **`--instructions` 不可用**: 0.139.0 移除了该标志。使用管道注入替代：
+```powershell
+$prompt = Get-Content D:\Desktop\mcp\CODEX_PROMPT.md -Raw
+echo $prompt | codex -a never exec -C "$env:TEMP\test-repo" --
+```
+
+4. **`-a` 必须放在 `exec` 前**: `-a` 是全局选项，`-C` 是 exec 选项。正确顺序：
+```powershell
+# ✅ 正确
+codex -a never exec -C "$env:TEMP\test-repo" -
+# ❌ 错误
+codex exec -a never -C "$env:TEMP\test-repo" -
+```
+
+5. **DATABASE_URL 必须绝对路径**: Prisma Client 与 schema-engine 的 CWD 不一致，相对路径必然失败。

@@ -1,3 +1,17 @@
+## [0.5.0] - 2026-06-15
+
+### Audit Trail (P3)
+- Prisma schema: RuleVersion model (ruleId, pattern, suggestion, editedBy, createdAt)
+- RuleRepo.updateContent(): auto-creates version snapshot before each write
+- RuleRepo.getRuleVersions(ruleId): query edit history
+- Unit tests (3): edit → query versions → verify snapshot integrity
+- E2E test: versionAudit assertion (RuleVersion table exists)
+
+### Changed Files
+- prisma/schema.prisma (RuleVersion model + Rule.versions relation)
+- src/storage/rule-repo.ts (updateContent snapshot + getRuleVersions)
+- tests/storage/rule-version.test.ts (new, 3 tests)
+- tests/e2e-fix-verify.mjs (versionAudit assertion)
 ## [0.4.0] - 2026-06-15
 
 ### CI/CD

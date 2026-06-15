@@ -110,8 +110,15 @@ export class RuleRepo {
   }
 
   /** Update a rule's pattern, suggestion, and/or category. Returns the updated rule. */
-  async updateContent(id: string, data: { pattern?: string; suggestion?: string; category?: string }): Promise<Rule> {
+  async updateContent(id: string, data: { pattern?: string; suggestion?: string; category?: string; editedBy?: string }): Promise<Rule> {
     const prisma = getPrismaClient();
+    // Snapshot current content before update for audit trail
+    const current = await prisma.rule.findUnique({ where: { id }, select: { pattern: true, suggestion: true } });
+    if (current) {
+      await prisma.ruleVersion.create({
+        data: { ruleId: id, pattern: current.pattern, suggestion: current.suggestion, editedBy: data.editedBy ?? null },
+      });
+    }
     const r = await prisma.rule.update({
       where: { id },
       data: {
@@ -121,6 +128,10 @@ export class RuleRepo {
       },
     });
     return toRule(r);
+  }
+  async getRuleVersions(ruleId: string): Promise<{ id: string; ruleId: string; pattern: string; suggestion: string | null; editedBy: string | null; createdAt: Date }[]> {
+    const prisma = getPrismaClient();
+    return prisma.ruleVersion.findMany({ where: { ruleId }, orderBy: { createdAt: "desc" } });
   }
 
   async queryByMatch(language: string, fileExtension: string, projectId?: string, tags?: string[]): Promise<Rule[]> {

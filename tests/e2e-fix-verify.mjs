@@ -32,7 +32,7 @@ if (tmpMode) {
   ]) {
     d.prepare("INSERT INTO Rule (id,scope,type,pattern,suggestion,language,fileExtensions,tags,confidence,source,status,createdAt) VALUES(?,?,?,?,?,?,?,?,'high','auto','active',?)").run(randomUUID(),s.sc,s.tp,s.pa,s.su,s.la,s.ex,s.ta,now);
   }
-  d.close();
+  const vt = d.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='RuleVersion'").get(); r.fixes.versionAudit = { pass: vt !== undefined, val: vt ? vt.name : null }; d.close();
 }
 
 const d = new D(dbPath);
@@ -56,3 +56,4 @@ try {
 r.meta.ec = ec;
 console.log(JSON.stringify(r, null, 2));
 process.exit(ec);
+

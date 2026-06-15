@@ -29,6 +29,7 @@ model Rule {
   diffLogs        DiffLog[]
   conflictA       ConflictRecord[] @relation("conflictRuleA")
   conflictB       ConflictRecord[] @relation("conflictRuleB")
+  versions        RuleVersion[]
 }
 
 model DiffLog {
@@ -72,4 +73,14 @@ model AppConfig {
   id    String @id @default("default")
   mode  String @default("silent")
   data  String?
+}
+model RuleVersion {
+  id         String   @id @default(uuid())
+  ruleId     String
+  pattern    String
+  suggestion String?
+  editedBy   String?
+  createdAt  DateTime @default(now())
+
+  rule       Rule     @relation(fields: [ruleId], references: [id])
 }

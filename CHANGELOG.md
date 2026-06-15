@@ -1,3 +1,20 @@
+## [0.4.0] - 2026-06-15
+
+### CI/CD
+- GitHub Actions E2E workflow (.github/workflows/e2e.yml)
+- E2E test supports --db <path> and --db ':memory:' modes
+- 
+pm run test:e2e script added to package.json
+
+### New Features
+- nalyze_workspace non-git fallback: ileContents parameter for direct content analysis
+- Concurrency control for fileContents processing (configurable via concurrency param)
+- E2E verification script (tests/e2e-fix-verify.mjs) — standalone, JSON output, proper exit codes
+
+### Fixed
+- rule-repo.ts queryByMatch: add OR fileExtensions IS NULL for 97%+ recall
+- confirm-rule.ts: updateContent write+readback verification, no false success
+- rule-matcher.ts: content_match in computeScore + matchReasons
 ## [0.3.0] - 2026-06-15
 
 ### 🐛 Critical Fixes

@@ -171,6 +171,8 @@ export interface AnalyzeWorkspaceInput {
   headCommit?: string;
   paths?: string[];
   taskId?: string;
+  /** Concurrent analysis: max files processed in parallel. Defaults to 5 or CPU core count. */
+  concurrency?: number;
   fileContents?: { path: string; originalContent?: string; modifiedContent: string }[];
 }
  

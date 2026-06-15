@@ -1,3 +1,22 @@
+## [0.6.0] - 2026-06-15
+
+### P4: Concurrency Control
+- AnalyzeWorkspaceInput: new concurrency parameter (default: 5)
+- fileContents non-git mode: switched from sequential to concurrent batch processing
+- Git diff mode: respects input.concurrency (previously hardcoded CONCURRENCY=5)
+
+### P5: OpenAPI 3.1 Schema Export
+- src/openapi.ts: generateOpenAPISchema() + xportOpenAPISchema() functions
+- docs/openapi.json: auto-generated OpenAPI 3.1 JSON for all 5 MCP tools
+- Non-TypeScript clients (Python LSP, VS Code extensions) can now discover tool schemas
+
+### Changed Files
+- src/types.ts (concurrency field)
+- src/tools/analyze-workspace.ts (concurrent fileContents + git mode)
+- src/openapi.ts (new)
+- docs/openapi.json (new)
+- .github/workflows/e2e.yml (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24)
+- .npmrc (legacy-peer-deps)
 ## [0.5.0] - 2026-06-15
 
 ### Audit Trail (P3)

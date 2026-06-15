@@ -1,0 +1,11 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "MCP Rule Engine", "version": "0.6.0", "description": "OpenAPI schema for MCP Rule Engine tools" },
+  "paths": {
+    "/tools/analyze_workspace": { "post": { "summary": "Analyze workspace", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "baseCommit": { "type": "string" }, "headCommit": { "type": "string" }, "paths": { "type": "array", "items": { "type": "string" } }, "concurrency": { "type": "integer", "default": 5 } }, "required": ["baseCommit"] } } } }, "responses": { "200": { "description": "AnalyzeResult" } } } },
+    "/tools/query_rules": { "post": { "summary": "Query rules", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "language": { "type": "string" }, "filePath": { "type": "string" } }, "required": ["language","filePath"] } } } }, "responses": { "200": { "description": "Scored rules" } } } },
+    "/tools/confirm_rule": { "post": { "summary": "Confirm/edit/skip", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "ruleId": { "type": "string" }, "action": { "type": "string", "enum": ["accept","reject","edit","skip"] } }, "required": ["ruleId","action"] } } } }, "responses": { "200": { "description": "Result" } } } },
+    "/tools/resolve_conflict": { "post": { "summary": "Resolve conflict", "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "conflictId": { "type": "string" }, "resolution": { "type": "string", "enum": ["keep_a","keep_b","merge","skip"] } }, "required": ["conflictId","resolution"] } } } }, "responses": { "200": { "description": "Result" } } } },
+    "/tools/list_rules": { "post": { "summary": "List rules", "responses": { "200": { "description": "Rule list" } } } }
+  }
+}

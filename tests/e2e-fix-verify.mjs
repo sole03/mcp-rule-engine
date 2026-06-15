@@ -45,6 +45,8 @@ try {
   r.fixes.queryByMatch = { pass: m.c > 0, val: m.c };
   const s = d.prepare("SELECT scope, COUNT(*) as c FROM Rule GROUP BY scope").all();
   r.fixes.scopeDist = { pass: s.length > 0, val: s };
+  const vt = d.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='RuleVersion'").get();
+  r.fixes.versionAudit = { pass: vt !== undefined, val: vt ? vt.name : null };
   d.close();
   if (tmpMode) {
     try { unlinkSync(dbPath); unlinkSync(dbPath + "-wal"); unlinkSync(dbPath + "-shm"); } catch {}

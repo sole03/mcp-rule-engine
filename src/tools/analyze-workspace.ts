@@ -43,16 +43,18 @@ export async function handleAnalyzeWorkspace(
   const result: AnalyzeResult = { analyzedFiles: 0, skippedFiles: 0, generatedRules: [], conflicts: [], errors: [] };
 
   const diffOut = git(`diff --name-only ${input.baseCommit} ${head}`);
-  // Non-git mode: process fileContents directly
+  // Non-git mode: process fileContents directly with concurrency
   if (input.fileContents && input.fileContents.length > 0) {
     result.analyzedFiles = input.fileContents.length;
-    for (const fc of input.fileContents) {
+    const cc = input.concurrency ?? CONCURRENCY;
+    for (let i = 0; i < input.fileContents.length; i += cc) {
+      await Promise.all(input.fileContents.slice(i, i + cc).map(async (fc) => {
       const lang = detectLang(fc.path);
-      if (!lang) { result.skippedFiles++; continue; }
+      if (!lang) { result.skippedFiles++; return; }
       try {
-        const diffR = await computeDiffWithFallback(fc.originalContent ?? "", fc.modifiedContent, lang);
+        const diffR = await computeDiffWithFallback(fc.originalContent ?? "", fc.modifiedContent, lang as string);
         if (diffR.operations.length > 0) {
-          const evalR = evaluateRuleCandidate(diffR.operations, lang, 1, 1, RULE_GENERATION_THRESHOLDS.repeatWindowDays);
+          const evalR = evaluateRuleCandidate(diffR.operations, lang as string, 1, 1, RULE_GENERATION_THRESHOLDS.repeatWindowDays);
           if (evalR.generate && evalR.ruleCandidate) {
             result.generatedRules.push({ rule: evalR.ruleCandidate, filePath: fc.path });
           }
@@ -60,6 +62,7 @@ export async function handleAnalyzeWorkspace(
       } catch (err) {
         result.errors.push({ filePath: fc.path, error: String(err) });
       }
+      }));
     }
     await metricRepo.track("analyze_workspace", { taskId: input.taskId, analyzedFiles: result.analyzedFiles, rulesGenerated: result.generatedRules.length, source: input.taskId ? "codex" : "manual" });
     return { content: [{ type: "text", text: JSON.stringify(result) }] };

@@ -15,5 +15,6 @@ export async function handleResolveConflict(input: ResolveConflictInput, conflic
   if (arbitration) await ruleRepo.create({ ...arbitration, projectId: ruleA.projectId });
   if (input.batchAllSession) await conflictRepo.setBatchChoice(input.conflictId, "session:" + input.resolution);
   await metricRepo.track("conflict_resolved", { conflictId: input.conflictId, resolution: input.resolution });
+  await metricRepo.track("conflict_resolution_distribution", { resolution: input.resolution, conflictId: input.conflictId }).catch(() => {});
   return { content: [{ type: "text", text: JSON.stringify({ success: true, resolution: input.resolution, arbitrationCreated: !!arbitration }) }] };
 }

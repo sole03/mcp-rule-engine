@@ -11,8 +11,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "node tests/e2e-fix-verify.mjs"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

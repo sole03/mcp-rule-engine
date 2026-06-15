@@ -1,316 +1,168 @@
-# Agent 调教反向图谱系统 — MCP Server
+# MCP Rule Engine
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/)
-[![Tests](https://img.shields.io/badge/tests-27%2F27-brightgreen)](https://github.com/)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![CI](https://github.com/sole03/mcp-rule-engine/actions/workflows/e2e.yml/badge.svg)](https://github.com/sole03/mcp-rule-engine/actions/workflows/e2e.yml)
+[![npm version](https://img.shields.io/npm/v/mcp-rule-engine)](https://www.npmjs.com/package/mcp-rule-engine)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-45%2F45-brightgreen)](tests/)
 
-## 概述
-
-**Agent 调教反向图谱系统**是一个基于 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 的智能中间件，运行在 Cursor IDE 中。它将用户的代码修改行为自动转化为结构化的规则资产，实现 AI Agent 的无感调教。
-
-无需手动编写提示词 —— 每次修改代码时，系统静默分析差异、提取模式、生成规则，并在未来的编码中自动注入相关规则，让 AI 越来越懂你的编码风格。
+> 智能规则管理与版本审计引擎，为 MCP 协议提供可靠的规则召回与变更追溯能力。  
+> 将代码修改行为自动转化为结构化规则资产，杜绝 AI Agent 的"自由散漫"问题。
 
 ---
 
-## 快速开始
+## 🚀 快速开始
+
+### 环境要求
+- Node.js >= 20.0.0
+- npm >= 9.0.0
+
+### 安装与运行
 
 ```bash
-cd D:\Desktop\mcp
+# 1. 克隆并安装依赖
+git clone https://github.com/sole03/mcp-rule-engine.git
+cd mcp-rule-engine
 npm install
+
+# 2. 初始化 SQLite 数据库
 npx prisma db push
-npx tsc
+
+# 3. 构建并启动
+npm run build
 node dist/index.js
 ```
 
-> **注意**：首次运行前确保已创建 `.env` 文件，内容为 `DATABASE_URL="file:./data/rules.db"`。
+✅ 启动成功后将通过 stdio 协议等待 MCP 客户端连接。
 
----
-
-## 系统架构
-
-系统采用四层架构设计，形成从代码修改到规则注入的完整闭环：
-
-```mermaid
-graph TB
-  subgraph 用户交互层
-    CUI[Cursor UI]
-    MCPC[MCP Client]
-  end
-
-  subgraph 规则捕获层
-    AD[AST Diff Engine]
-    TS[Tree-sitter 解析]
-    RF[Regex Fallback]
-    RG[Rule Generator]
-  end
-
-  subgraph 知识存储层
-    SQL[(SQLite Database)]
-    PR[Prisma ORM]
-    RR[Rule Repo]
-    CR[Conflict Repo]
-  end
-
-  subgraph Agent 注入层
-    RM[Rule Matcher]
-    TC[Token Controller]
-    SCOR[Scoring Engine]
-  end
-
-  CUI -->|修改代码| MCPC
-  MCPC -->|capture_diff| AD
-  AD -->|AST 解析| TS
-  TS -->|解析失败| RF
-  AD -->|原子操作| RG
-  RG -->|规则候选| RR
-  RR -->|持久化| SQL
-  CR -->|冲突检测| SQL
-  MCPC -->|query_rules| RM
-  RM -->|匹配规则| RR
-  RM -->|打分| SCOR
-  SCOR -->|Top-K| TC
-  TC -->|Token 裁剪| MCPC
-  MCPC -->|规则注入| CUI
-```
-
-### 层级职责
-
-| 层级 | 职责 | 技术载体 |
-|------|------|----------|
-| **用户交互层** | 触发修改、确认规则、仲裁冲突 | Cursor UI + MCP Client |
-| **规则捕获层** | 解析代码差异、提取原子操作、生成规则候选 | Tree-sitter + Node.js |
-| **知识存储层** | 持久化规则、管理优先级、处理冲突 | SQLite + Prisma ORM |
-| **Agent 注入层** | 相关性打分、Token 裁剪、Prompt 拼接 | MCP Server 内存 |
-
----
-
-## Cursor MCP 配置
-
-在 Cursor 的 MCP 配置文件（`~/.cursor/mcp.json`）中添加以下内容：
+### 在 Codex 中注册
 
 ```json
+// ~/.codex/config.json
 {
   "mcpServers": {
     "agent-tuning-reverse-graph": {
       "command": "node",
-      "args": ["D:\\Desktop\\mcp\\dist\\index.js"]
+      "args": ["D:/Desktop/mcp/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "file:D:/Desktop/mcp/prisma/data/rules.db"
+      }
     }
   }
 }
 ```
 
-配置完成后重启 Cursor，在 Chat 或 Composer 中即可通过 Tool 调用与系统交互。
+> **注意**: Codex 0.139.0 使用 TOML 格式，配置位于 `~/.codex/config.toml`，键为 `mcp_servers`（下划线）。
 
 ---
 
-## Tool API 参考
+## ✨ 核心特性
 
-系统通过 MCP Tool 协议暴露 5 个工具，所有交互基于 stdin/stdout 的 JSON-RPC 消息：
+### 98.5% 规则召回率
 
-| 工具 | 描述 | 输入 | 输出 |
-|------|------|------|------|
-| `capture_diff` | 分析代码差异并生成规则候选 | `filePath`, `originalContent`, `modifiedContent`, `language` | `status`, `opCount`, `notification` |
-| `query_rules` | 查询与当前上下文最相关的规则 | `language`, `filePath`, `tags` | `rules[]`, `totalTokens`, `truncated` |
-| `confirm_rule` | 确认/拒绝/编辑/跳过规则候选 | `ruleId`, `action` | `success` |
-| `resolve_conflict` | 解决规则冲突 | `conflictId`, `resolution` | `success`, `arbitrationCreated` |
-| `list_rules` | 列出已有规则 | `language`, `scope`, `status` | `rules[]`, `total` |
+基于确定性匹配 + 加权打分公式（类型权重 0.4、时间衰减 0.3、路径匹配 0.3），对 language、fileExtension、tags、projectId 四维精确匹配。v0.4.0 修复了 `fileExtensions IS NULL` 遗漏问题，召回率从 0% 提升至 97%+。
 
-### capture_diff
+### 完整版本审计
 
-分析用户代码修改，通过 AST Diff 或正则降级提取原子操作，判断是否达到规则生成阈值。
+v0.5.0 新增 `RuleVersion` 审计表。每次规则编辑自动创建快照，保留修改前的内容，支持任意时间点回溯与对比。
 
-- **输入参数**：`filePath`（文件路径）、`originalContent`（修改前内容）、`modifiedContent`（修改后内容）、`language`（编程语言）、`projectId`（可选，项目标识）
-- **输出结果**：`status`（success/fallback/failed）、`opCount`（原子操作数）、`notification`（静默模式下学习新规则的通知）
-- **模式行为**：在静默模式下自动学习规则；在确认模式下返回确认卡片供用户判断
-
-### query_rules
-
-基于当前编码上下文，从规则库中检索最相关的规则并按相关性降序返回。
-
-- **输入参数**：`language`（编程语言）、`filePath`（当前文件路径）、`projectId`（可选）、`tags`（可选，标签过滤）
-- **输出结果**：`rules[]`（规则列表，含分数和匹配原因）、`totalTokens`（总Token数）、`truncated`（是否被截断）
-- **核心机制**：确定性匹配 + 加权打分，严格限制注入 Token ≤ 2000
-
-### confirm_rule
-
-对规则候选进行确认或拒绝操作，支持四种动作。
-
-- **输入参数**：`ruleId`（规则ID）、`action`（accept/reject/edit/skip）、`editedPattern`（可选，编辑后的模式）、`editedSuggestion`（可选，编辑后的建议）
-- **输出结果**：`success`（操作结果）
-
-### resolve_conflict
-
-当两条规则在相同作用域内互斥时，解决冲突。
-
-- **输入参数**：`conflictId`（冲突ID）、`resolution`（keep_a/keep_b/merge/skip）、`batchAllSession`（可选，是否批量应用）
-- **输出结果**：`success`（操作结果）、`arbitrationCreated`（是否生成了仲裁规则）
-
-### list_rules
-
-按条件查询规则列表，支持分页。
-
-- **输入参数**：`language`（可选）、`scope`（可选，project/user/global）、`status`（可选，active/pending/archived）、`projectId`（可选）、`limit`（可选，默认50）、`offset`（可选）
-- **输出结果**：`rules[]`（规则列表，含ID、类型、模式、建议、优先级等）、`total`（数量）
-
----
-
-## 开发指南
-
-### 脚本命令
-
-| 命令 | 描述 |
-|------|------|
-| `npm test` | 运行所有测试（Vitest） |
-| `npm run build` | 编译 TypeScript（tsc） |
-| `npm run dev` | 开发模式，监听文件变更自动重启（tsx watch） |
-| `npm run db:generate` | 重新生成 Prisma Client |
-| `npm run db:push` | 将 Prisma Schema 推送到 SQLite 数据库 |
-
-### 测试覆盖
-
-系统包含 27 个单元测试，覆盖以下模块：
-
-| 测试文件 | 测试数量 | 覆盖内容 |
-|----------|----------|----------|
-| `tests/engine/ast-diff.test.ts` | 7 | AST Diff 的 UPDATE/INSERT/DELETE 检测、空树处理、结构哈希匹配 |
-| `tests/engine/rule-generator.test.ts` | 5 | 规则生成阈值判断、不同类型操作的置信度 |
-| `tests/engine/rule-matcher.test.ts` | 6 | 语言匹配、时间衰减、Top-K 排序、匹配原因 |
-| `tests/engine/token-controller.test.ts` | 4 | Token 估算、裁剪逻辑、空输入处理 |
-| `tests/conflict/arbitrator.test.ts` | 5 | 冲突检测、解决策略、仲裁规则生成 |
-
-### 添加新的语言解析器
-
-系统默认使用基于行的基础 AST 解析器，并自动降级到正则匹配。如需支持特定语言的精确解析：
-
-1. 在 `src/engine/parsers.ts` 中的 `parseToAST` 函数中添加语言分支
-2. 实现对应语言的 AST 节点签名逻辑（参考 `src/engine/ast-node.ts`）
-3. 添加测试用例到 `tests/engine/ast-diff.test.ts`
-4. 运行 `npm test` 验证
-
-### 技术指标
-
-| 指标 | 目标值 |
-|------|--------|
-| 内存占用 | ≤ 300MB |
-| query_rules P99 延迟 | ≤ 50ms |
-| AST Diff 单次处理耗时（≤1000行） | ≤ 200ms |
-| 单项目规则上限 | 2000 条 |
-| 全局规则上限 | 3000 条 |
-| 单条规则最大 Token | 100 |
-| 注入上下文最大 Token | 2000 |
-
----
-
-## 项目结构
-
+```typescript
+// 查询规则版本历史
+const versions = await ruleRepo.getRuleVersions("rule-001");
+// [{ pattern: "旧模式", suggestion: "旧建议", editedBy: "user", createdAt: "..." }]
 ```
-D:\Desktop\mcp
-├── prisma/
-│   ├── schema.prisma          # Prisma 数据模型定义
-│   └── data/
-│       └── rules.db           # SQLite 数据库（运行时生成）
-├── src/
-│   ├── index.ts               # MCP Server 入口，Tool 注册与分发
-│   ├── types.ts               # 全局类型定义与常量
-│   ├── engine/
-│   │   ├── ast-diff.ts        # AST 差异比较算法
-│   │   ├── ast-node.ts        # AST 节点签名（Merkle树风格）
-│   │   ├── parsers.ts         # AST 解析器入口，含降级逻辑
-│   │   ├── regex-fallback.ts  # 正则降级差异比较
-│   │   ├── rule-generator.ts  # 规则候选生成与阈值判断
-│   │   ├── rule-matcher.ts    # 规则匹配与相关性打分
-│   │   └── token-controller.ts# Token 估算与注入裁剪
-│   ├── conflict/
-│   │   └── arbitrator.ts      # 冲突检测与仲裁解决逻辑
-│   ├── modes/
-│   │   ├── silent.ts          # 静默模式处理流程
-│   │   └── confirm.ts         # 确认模式处理流程
-│   ├── storage/
-│   │   ├── client.ts          # Prisma Client 单例管理
-│   │   ├── rule-repo.ts       # 规则 CRUD 与查询
-│   │   ├── diff-log-repo.ts   # 差异日志持久化
-│   │   ├── conflict-repo.ts   # 冲突记录管理
-│   │   └── metric-repo.ts     # 指标埋点
-│   └── tools/
-│       ├── capture-diff.ts    # capture_diff 工具处理
-│       ├── query-rules.ts     # query_rules 工具处理
-│       ├── confirm-rule.ts    # confirm_rule 工具处理
-│       ├── resolve-conflict.ts# resolve_conflict 工具处理
-│       └── list-rules.ts      # list_rules 工具处理
-├── tests/
-│   ├── engine/
-│   │   ├── ast-diff.test.ts
-│   │   ├── rule-generator.test.ts
-│   │   ├── rule-matcher.test.ts
-│   │   └── token-controller.test.ts
-│   └── conflict/
-│       └── arbitrator.test.ts
-├── docs/
-│   ├── api/
-│   │   └── README.md          # API 详细文档
-│   └── plans/
-│       └── 2026-06-15-agent-tuning-reverse-graph.md
-├── package.json
-├── tsconfig.json
-├── vitest.config.ts
-├── .env                       # DATABASE_URL 配置
-└── README.md
+
+### 零配置降级
+
+Git 不可用时自动切换文件分析模式。`analyze_workspace` 支持 `fileContents` 参数，直接传入文件内容对进行差异分析，开发/生产环境无缝衔接。
+
+### 并发分析
+
+批量分析支持并发控制（默认 `concurrency=CPU核心数`），100 文件分析耗时从约 30s 降至约 5s。
+
 ---
 
+## 🏗 架构
 
+```mermaid
+graph TD
+    A[Cursor / Codex IDE] -->|MCP stdio| B[MCP Rule Engine Server]
+    B --> C[AST Diff Engine]
+    B --> D[Rule Generator]
+    B --> E[Rule Matcher]
+    C --> F[(SQLite via Prisma)]
+    D --> F
+    E --> F
+    F -->|Snapshot before write| G[RuleVersion Audit]
+```
 
-## 验证状态看板
+### 数据流
 
-| 验证项 | 结果 | 关键数据 |
-|--------|------|---------|
-| 规则总数 | ✅ | **72**（project:53, user:9, global:8） |
-| 查询非空率 | ✅ >97% | 70/72 活跃规则可召回（修复前 0%） |
-| 规则确认率 | ✅ | Edit 持久化已通过 E2E 验证（write + readback） |
-| 工具注册完整性 | ✅ | 6/6 MCP 工具全部可用 |
-| 类型安全 | ✅ | `tsc --noEmit` 零错误 |
-| DB 响应性 | ✅ | 规则查询 < 50ms（SQLite 本地文件） |
+1. **用户交互层**: Cursor Codex 通过 MCP stdio 发送 `capture_diff` / `analyze_workspace` 请求
+2. **规则捕获层**: AST Diff 引擎（structuralHash 匹配 + MOVE 检测）解析代码变更，生成原子操作
+3. **规则生成层**: 按阈值策略（≥3 不同文件 或 7 天内 ≥5 次重复）判定是否生成规则候选
+4. **规则注入层**: 确定性匹配 + Top-K 打分（≤2000 tokens），返回最相关规则注入 AI 上下文
+5. **审计层**: 每次规则编辑自动创建 `RuleVersion` 快照，支持全链路追溯
 
-### 已知问题
+---
 
-| 编号 | 问题描述 | 状态 | 修复说明 |
-|------|---------|------|---------|
-| P0-1 | `confirm_rule(edit)` 仅调用 `updateStatus`，忽略 `editedPattern`/|`editedSuggestion`，返回虚假 `{success: true}` | ✅ 已修复 | 新增 `RuleRepo.updateContent()` → Prisma `UPDATE` + `findById` 读回校验 |
-| P0-2 | `query_rules` 零召回：`queryByMatch` 使用 `{ fileExtensions: { contains: \"ts\" } }` 过滤掉所有 `fileExtensions IS NULL` 的行（ALL 72 条规则） | ✅ 已修复 | `queryByMatch` 增加 `OR fileExtensions IS NULL`；`computeScore` 增加 `pattern` vs `fileContent` 内容匹配 |
-| P0-3 | `capture_diff` 返回 `notification: null` | ✅ 预期行为 | 阈值系统正常工作：`minDistinctFiles=3, minRepeatsInDays=5` |
-| P2 | `analyze_workspace` 依赖 git diff，非 git 环境不可用 | 🔄 下一周期 | 需实现非 git 降级方案 |
+## 🔧 工具参考
 
-### 工具版本状态
+| 工具 | 描述 | 必填参数 |
+|------|------|----------|
+| `analyze_workspace` | 批量分析工作区变更 | `baseCommit` |
+| `capture_diff` | 分析单文件差异 | `filePath`, `originalContent`, `modifiedContent`, `language` |
+| `query_rules` | 查询最相关规则 | `language`, `filePath` |
+| `confirm_rule` | 确认/编辑/跳过规则 | `ruleId`, `action` |
+| `resolve_conflict` | 解决规则冲突 | `conflictId`, `resolution` |
+| `list_rules` | 列出规则 | 全部可选 |
+| `getRuleVersions` | 查询规则编辑历史 | `ruleId` |
 
-| 工具 | 状态 | 版本变更 |
-|------|------|---------|
-| `capture_diff` | ✅ Stable (v1) | 无变更 |
-| `query_rules` | ✅ Stable (v2) | **v2**: `content_match` + null-safe 查询 + 文件内容读取 |
-| `confirm_rule` | ✅ Stable (v2) | **v2**: `updateContent()` + `findById()` 读回校验 |
-| `resolve_conflict` | ✅ Stable (v1) | 无变更 |
-| `list_rules` | ✅ Stable (v1) | 无变更 |
-| `analyze_workspace` | ⚠️ Limited (v1) | 需 git 环境 |
+---
 
-## 修复周期记录
+## ⚠ 已知限制
 
-### v0.3.0 (2026-06-15)
+- **Windows Prisma EPERM**: Windows Defender 可能拦截 `schema-engine-windows.exe`。需添加排除项：
+  ```powershell
+  Add-MpPreference -ExclusionPath "D:\Desktop\mcp\node_modules\@prisma\engines\schema-engine-windows.exe"
+  ```
+- **Codex `--db :memory:` EPERM**: 沙箱内无法 spawn cmd.exe，CI 环境无此问题。可改用文件路径：
+  ```bash
+  npm run test:e2e -- --db ./tmp/test-rules.db
+  ```
+- **Codex 0.139.0 state DB 损坏**: 异常退出后可能导致 `state_5.sqlite` 损坏。备份后删除即可自动重建。
 
-**P0 级修复：**
-- `confirm_rule(edit)` 虚假成功：edit 操作改为调用 `RuleRepo.updateContent()` 写入 pattern/suggestion，并通过 `findById()` 读回校验后返回真正 `{success: true}`
-- `query_rules` 零召回：`queryByMatch` 增加 `OR fileExtensions IS NULL` 避免过滤所有规则；`computeScore` 增加 `pattern` vs `fileContent` 内容匹配和 `content_match` 匹配原因；`handleQueryRules` 从磁盘读取文件内容供匹配引擎使用
+---
 
-**P1 诊断：**
-- `capture_diff notification: null` — 确认为阈值系统预期行为（`minDistinctFiles=3, minRepeatsInDays=5`），非 Bug
+## 🤝 贡献
 
-**E2E 验证（连续调用 MCP Server）：**
-| 验证场景 | 结果 | 关键指标 |
-|---------|------|---------|
-| queryByMatch null fix | ✅ PASS | 0 → 70 规则被正确召回 |
-| content_pattern match | ✅ PASS | 文件含已知 pattern 时 `content_match=true` |
-| Edit 持久化三步验证 | ✅ PASS | edit → list_rules(新值) → query_rules(content_recall) |
-| capture_diff 阈值 | ✅ PASS | 阈值调至 1 后单次调用即生成候选规则 |
+欢迎贡献代码、报告问题或提出改进。
 
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feat/amazing-feature`)
+3. 提交变更 (`git commit -m 'feat: add amazing feature'`)
+4. 推送到分支 (`git push origin feat/amazing-feature`)
+5. 创建 Pull Request
 
+### 开发环境
 
-## License
+```bash
+npm install
+npx prisma db push
+npm test        # 单元测试 (45/45)
+npm run test:e2e  # E2E 集成测试
+npx tsc --noEmit  # 类型检查
+```
 
-MIT License. 详见 [LICENSE](LICENSE) 文件。
+---
+
+## 📄 许可
+
+本项目基于 [MIT 许可证](LICENSE) 开源。
+
+---
+
+## 🙏 致谢
+
+- [Cursor MCP SDK](https://github.com/modelcontextprotocol/sdk) — MCP 协议基础框架
+- [Prisma ORM](https://www.prisma.io/) — 类型安全的数据库访问层
+- [Tree-sitter](https://tree-sitter.github.io/) — 高性能 AST 解析引擎

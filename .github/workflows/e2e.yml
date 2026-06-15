@@ -1,0 +1,28 @@
+name: MCP E2E Verification
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Initialize SQLite database
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: "file:./prisma/data/rules.db"
+      - name: Run E2E Verification
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: "file:./prisma/data/rules.db"
+      - name: Parse E2E Result
+        run: node -e "const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); process.exit(r.meta.ec);" < <(npm run -s test:e2e 2>/dev/null)

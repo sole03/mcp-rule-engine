@@ -166,12 +166,13 @@ export const RULE_GENERATION_THRESHOLDS = {
   repeatWindowDays: 7,
 } as const;
  
- export interface AnalyzeWorkspaceInput {
-   baseCommit: string;
-   headCommit?: string;
-   paths?: string[];
-   taskId?: string;
- }
+export interface AnalyzeWorkspaceInput {
+  baseCommit: string;
+  headCommit?: string;
+  paths?: string[];
+  taskId?: string;
+  fileContents?: { path: string; originalContent?: string; modifiedContent: string }[];
+}
  
  export interface AnalyzeResult {
    analyzedFiles: number;

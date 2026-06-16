@@ -19,6 +19,8 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "file:./dev.db"
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +31,8 @@ jobs:
       - run: npm ci
 
       - run: npx prisma generate
+
+      - run: npx prisma migrate deploy
 
       - name: Property Tests
         run: npx vitest run tests/verification/

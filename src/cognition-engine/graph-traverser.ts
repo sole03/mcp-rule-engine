@@ -154,9 +154,28 @@ export class GraphTraverser {
       // Stop at max depth
       if (current.depth >= maxDepth) continue;
 
-      // Fetch outgoing edges for this node
-      const subgraph = await this.repo.getSubgraph(current.nodeId, 1);
-      const outgoingEdges = subgraph.edges.filter(
+      // Batch frontier: collect peers at same depth, fetch subgraphs in one round-trip
+      const currentDepth = current.depth;
+      const peerNodeIds = [current.nodeId];
+      while (frontier.length > 0 && frontier[0].depth === currentDepth) {
+        peerNodeIds.push(frontier[0].nodeId);
+        frontier.shift();
+      }
+      const batchSubgraph = await this.repo.getSubgraphBatch(peerNodeIds);
+      
+      // Build lookup map: nodeId -> { edges[], targetNodes{} }
+      const lookup = new Map();
+      for (const nid of peerNodeIds) lookup.set(nid, { edges: [], targets: new Map() });
+      for (const e of batchSubgraph.edges) {
+        const t = batchSubgraph.nodes.find(n => n.id === e.targetId);
+        const entry = lookup.get(e.sourceId);
+        if (entry && t) { entry.edges.push(e); entry.targets.set(e.targetId, t); }
+      }
+      
+      // Use cached subgraph data
+      const cached = lookup.get(current.nodeId);
+      const subgraph = { nodes: batchSubgraph.nodes, edges: cached?.edges ?? [] };
+      const outgoingEdges = (subgraph.edges as any[]).filter(
         e => e.sourceId === current.nodeId && !visitedEdgeIds.has(e.id),
       );
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright 2026 熊高锐
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -230,6 +230,53 @@ export class CognitionRepository {
 
     return { nodes, edges };
   }
+  /**
+   * Get subgraphs for multiple root nodes in a single batch query.
+   * Eliminates N+1 in GraphTraverser frontier processing.
+   * SQLite IN clause safe: splits at 900 ids (under 999 param limit).
+   */
+  async getSubgraphBatch(rootNodeIds: string[]): Promise<SubgraphResult> {
+    if (rootNodeIds.length === 0) return { nodes: [], edges: [] };
+
+    const prisma = getPrismaClient();
+    const CHUNK = 900;
+    const allEdges: CognitionEdgeData[] = [];
+    const targetIds = new Set<string>();
+    const rootNodes: CognitionNodeData[] = [];
+
+    // Batch-fetch root nodes
+    for (let i = 0; i < rootNodeIds.length; i += CHUNK) {
+      const rows = await prisma.cognitionNode.findMany({
+        where: { id: { in: rootNodeIds.slice(i, i + CHUNK) } },
+        include: { astTemplate: true },
+      });
+      for (const r of rows) rootNodes.push(toCognitionNode(r));
+    }
+
+    // Batch-fetch edges from all roots
+    for (let i = 0; i < rootNodeIds.length; i += CHUNK) {
+      const rows = await prisma.cognitionEdge.findMany({
+        where: { sourceId: { in: rootNodeIds.slice(i, i + CHUNK) } },
+      });
+      for (const e of rows) {
+        targetIds.add(e.targetId);
+        allEdges.push(toCognitionEdge(e));
+      }
+    }
+
+    // Batch-fetch target nodes (exclude already-fetched roots)
+    const uniqueTargets = [...targetIds].filter(id => !rootNodeIds.includes(id));
+    for (let i = 0; i < uniqueTargets.length; i += CHUNK) {
+      const rows = await prisma.cognitionNode.findMany({
+        where: { id: { in: uniqueTargets.slice(i, i + CHUNK) } },
+        include: { astTemplate: true },
+      });
+      for (const r of rows) rootNodes.push(toCognitionNode(r));
+    }
+
+    return { nodes: rootNodes, edges: allEdges };
+  }
+
 
   /**
    * Adjust an edge's weight by a delta (positive or negative).

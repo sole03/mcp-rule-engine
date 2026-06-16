@@ -33,23 +33,23 @@ describe("Injection Approval", () => {
     // Reset proposal store (access via module-level Map)
   });
 
-  it("createProposal returns proposal with TTL", () => {
-    const p = createProposal("ctx-1", ["node-1"]);
-    expect(p.proposalId).toBeDefined();
+  it("createProposal returns proposal with TTL", async () => {
+    const p = await createProposal("ctx-1", "test-tool", ["node-1"]);
+    expect(p.id).toBeDefined();
     expect(p.contextHash).toBe("ctx-1");
-    expect(p.expiresAt).toBeGreaterThan(p.createdAt);
+    expect(new Date(p.expiresAt).getTime()).toBeGreaterThan(new Date(p.createdAt).getTime());
     expect(p.status).toBe("PENDING");
   });
 
-  it("duplicate contextHash returns existing proposal (conflict prevention)", () => {
-    const p1 = createProposal("ctx-dup", ["node-1"]);
-    const p2 = createProposal("ctx-dup", ["node-2"]);
-    expect(p2.proposalId).toBe(p1.proposalId);
+  it("duplicate contextHash returns existing proposal (conflict prevention)", async () => {
+    const p1 = await createProposal("ctx-dup", "test-tool", ["node-1"]);
+    const p2 = await createProposal("ctx-dup", "test-tool", ["node-2"]);
+    expect(p2.id).toBe(p1.id);
   });
 
   it("handleApproveInjection with APPROVE returns approved status", async () => {
-    const p = createProposal("ctx-approve", ["node-1"]);
-    const result = await handleApproveInjection({ proposalId: p.proposalId, decision: "APPROVE" });
+    const p = await createProposal("ctx-approve", "test-tool", ["node-1"]);
+    const result = await handleApproveInjection({ proposalId: p.id, decision: "APPROVE" });
     const data = JSON.parse(result.content[0].text);
     expect(data.status).toBe("APPROVED");
   });
@@ -68,18 +68,24 @@ describe("Injection Approval", () => {
   });
 
   it("handleApproveInjection with expired proposal returns retryable error", async () => {
-    const p = createProposal("ctx-expire", ["node-1"]);
-    // Force expiry by setting past TTL
-    (p as any).expiresAt = Date.now() - 1000;
-    const result = await handleApproveInjection({ proposalId: p.proposalId, decision: "REJECT" });
+    const p = await createProposal("ctx-expire", "test-tool", ["node-1"]);
+    // Force expiry via DB update (persisted proposals require DB-level mutation)
+    const { getPrismaClient } = await import("../../src/storage/client.js");
+    const prisma = getPrismaClient();
+    await prisma.proposal.update({
+      where: { id: p.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    const result = await handleApproveInjection({ proposalId: p.id, decision: "REJECT" });
     const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("Expired");
     expect(data.code).toBe(-32602);
     expect(data.retryable).toBe(true);
   });
 
-  it("getProposalStats returns counts", () => {
-    createProposal("stats-test", []);
-    const stats = getProposalStats();
+  it("getProposalStats returns counts", async () => {
+    await createProposal('stats-test', 'test-tool', []);
+    const stats = await getProposalStats();
     expect(typeof stats.active).toBe("number");
     expect(typeof stats.total).toBe("number");
   });
@@ -159,8 +165,8 @@ describe("Constraint Validator", () => {
 // ── Stats & Resource Tests ───────────────────────────────
 
 describe("Governance Resources", () => {
-  it("getProposalStats returns valid counts", () => {
-    const s = getProposalStats();
+  it("getProposalStats returns valid counts", async () => {
+    const s = await getProposalStats();
     expect(s.total).toBeGreaterThanOrEqual(0);
   });
 });

@@ -85,6 +85,27 @@ model RuleVersion {
   rule       Rule     @relation(fields: [ruleId], references: [id])
 }
 
+// ── Proposal Governance (P0) ──────────────────────────────
+// Injection approval workflow: PENDING → APPROVED | REJECTED | EXPIRED
+model Proposal {
+  id          String   @id @default(cuid())
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED | EXPIRED | OVERRIDDEN
+  contextHash String
+  toolName    String
+  payload     String   // JSON
+  nodeIds     String   // JSON array of node IDs
+  proposedBy  String?
+  reviewedBy  String?
+  reviewNote  String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([contextHash, status]) // only one PENDING per contextHash
+  @@index([status])
+  @@index([expiresAt])
+}
+
 // ── Cognition Graph (Phase 2+) ─────────────────────────────
 // Independent from legacy Rule engine. Do NOT modify existing models.
 

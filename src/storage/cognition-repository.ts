@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Copyright 2026 熊高锐
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -335,4 +335,86 @@ export class CognitionRepository {
       data: { properties: JSON.stringify(props) },
     });
   }
+}
+
+// ── Proposal Governance Methods ─────────────────────────
+
+export interface ProposalRow {
+  id: string;
+  status: string;
+  contextHash: string;
+  toolName: string;
+  payload: string;
+  nodeIds: string;
+  proposedBy: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProposalData {
+  id: string;
+  status: string;
+  contextHash: string;
+  toolName: string;
+  payload: Record<string, unknown> | null;
+  nodeIds: string[];
+  proposedBy: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export function toProposalData(row: ProposalRow): ProposalData {
+  return {
+    id: row.id,
+    status: row.status,
+    contextHash: row.contextHash,
+    toolName: row.toolName,
+    payload: row.payload ? JSON.parse(row.payload) : null,
+    nodeIds: row.nodeIds ? JSON.parse(row.nodeIds) : [],
+    proposedBy: row.proposedBy ?? null,
+    reviewedBy: row.reviewedBy ?? null,
+    reviewNote: row.reviewNote ?? null,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export async function findProposalById(id: string): Promise<ProposalData | null> {
+  const prisma = getPrismaClient();
+  const row = await prisma.proposal.findUnique({ where: { id } });
+  return row ? toProposalData(row) : null;
+}
+
+export async function findExpiredPendingProposals(): Promise<ProposalData[]> {
+  const prisma = getPrismaClient();
+  const rows = await prisma.proposal.findMany({
+    where: { status: "PENDING", expiresAt: { lt: new Date() } },
+  });
+  return rows.map(toProposalData);
+}
+
+export async function bulkExpireProposals(): Promise<number> {
+  const prisma = getPrismaClient();
+  const result = await prisma.proposal.updateMany({
+    where: { status: "PENDING", expiresAt: { lt: new Date() } },
+    data: { status: "EXPIRED" },
+  });
+  return result.count;
+}
+
+export async function getProposalStats(): Promise<{ active: number; expired: number; total: number }> {
+  const prisma = getPrismaClient();
+  const [active, expired, total] = await Promise.all([
+    prisma.proposal.count({ where: { status: "PENDING", expiresAt: { gt: new Date() } } }),
+    prisma.proposal.count({ where: { status: "EXPIRED" } }),
+    prisma.proposal.count(),
+  ]);
+  return { active, expired, total };
 }

@@ -16,104 +16,206 @@
 
 /**
  * @file Injection Approval Tool
- * Manages proposal-based approval workflow with TTL.
- * Proposal lifecycle: implicit CREATE (via query/validate) -> explicit APPROVE/REJECT/OVERRIDE.
+ * Manages proposal-based approval workflow with TTL, persisted to SQLite.
+ * Proposal lifecycle: CREATE → APPROVED | REJECTED | OVERRIDDEN | EXPIRED.
  */
 
-import { CognitionRepository } from "../storage/cognition-repository.js";
 import { getPrismaClient } from "../storage/client.js";
-import { writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const LOG_DIR = join(__dirname, "../../logs");
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-interface Proposal {
-  proposalId: string;
+export interface ProposalData {
+  id: string;
+  status: string;
   contextHash: string;
-  createdAt: number;
-  expiresAt: number;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "OVERRIDDEN" | "EXPIRED";
+  toolName: string;
+  payload: Record<string, unknown> | null;
   nodeIds: string[];
+  proposedBy: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const proposals = new Map<string, Proposal>();
-
-function generateId(): string {
-  return "prop_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-}
-
-/** Create a new proposal implicitly (called after query/validate). */
-export function createProposal(contextHash: string, nodeIds: string[] = []): Proposal {
-  const now = Date.now();
-  // Conflict check: only first proposal per contextHash is valid
-  for (const p of proposals.values()) {
-    if (p.contextHash === contextHash && p.status === "PENDING" && p.expiresAt > now) {
-      return p; // Return existing instead of creating new
-    }
-  }
-  const proposal: Proposal = {
-    proposalId: generateId(),
-    contextHash,
-    createdAt: now,
-    expiresAt: now + TTL_MS,
-    status: "PENDING",
-    nodeIds,
+function toProposal(row: any): ProposalData {
+  return {
+    id: row.id,
+    status: row.status,
+    contextHash: row.contextHash,
+    toolName: row.toolName,
+    payload: row.payload ? JSON.parse(row.payload) : null,
+    nodeIds: row.nodeIds ? JSON.parse(row.nodeIds) : [],
+    proposedBy: row.proposedBy ?? null,
+    reviewedBy: row.reviewedBy ?? null,
+    reviewNote: row.reviewNote ?? null,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
-  proposals.set(proposal.proposalId, proposal);
-  recordAuditLog("proposal_created", { proposalId: proposal.proposalId, contextHash });
-  return proposal;
 }
 
-/** Handle cognition_approve_injection MCP Tool call. */
-export async function handleApproveInjection(input: { proposalId: string; decision: "APPROVE" | "REJECT" | "OVERRIDE" }): Promise<{ content: { type: string; text: string }[] }> {
+/**
+ * Create a new proposal. If a PENDING proposal with the same contextHash already
+ * exists and hasn't expired, returns the existing one (conflict-safe).
+ */
+export async function createProposal(
+  contextHash: string,
+  toolName: string,
+  nodeIds: string[] = [],
+  payload?: Record<string, unknown>,
+): Promise<ProposalData> {
+  const prisma = getPrismaClient();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + TTL_MS);
+
+  // Conflict check: only first PENDING per contextHash is valid
+  const existing = await prisma.proposal.findFirst({
+    where: { contextHash, status: "PENDING", expiresAt: { gt: now } },
+  });
+  if (existing) return toProposal(existing);
+
+  const row = await prisma.proposal.create({
+    data: {
+      contextHash,
+      toolName,
+      payload: payload ? JSON.stringify(payload) : "{}",
+      nodeIds: JSON.stringify(nodeIds),
+      expiresAt,
+    },
+  });
+  await recordAuditLog("proposal_created", { proposalId: row.id, contextHash, toolName });
+  return toProposal(row);
+}
+
+/**
+ * Handle cognition_approve_injection MCP Tool call.
+ * Approves, rejects, or overrides a PENDING proposal.
+ */
+export async function handleApproveInjection(input: {
+  proposalId: string;
+  decision: "APPROVE" | "REJECT" | "OVERRIDE";
+}): Promise<{ content: { type: string; text: string }[] }> {
   try {
     if (!input.proposalId || !input.decision) {
-      return { content: [{ type: "text", text: JSON.stringify({ error: "proposalId and decision are required", code: -32602, retryable: false }) }] };
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ error: "proposalId and decision are required", code: -32602, retryable: false }),
+        }],
+      };
     }
-    const proposal = proposals.get(input.proposalId);
-    if (!proposal) {
-      return { content: [{ type: "text", text: JSON.stringify({ error: "Proposal not found: " + input.proposalId, code: -32602, retryable: false }) }] };
+
+    const prisma = getPrismaClient();
+    const row = await prisma.proposal.findUnique({ where: { id: input.proposalId } });
+    if (!row) {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ error: "Proposal not found: " + input.proposalId, code: -32602, retryable: false }),
+        }],
+      };
     }
-    if (Date.now() > proposal.expiresAt) {
-      proposal.status = "EXPIRED";
-      recordAuditLog("proposal_expired", { proposalId: input.proposalId });
+
+    // Expired check
+    if (new Date() > row.expiresAt) {
+      await prisma.proposal.update({ where: { id: input.proposalId }, data: { status: "EXPIRED" } });
+      await recordAuditLog("proposal_expired", { proposalId: input.proposalId });
       return { content: [{ type: "text", text: JSON.stringify({ error: "Proposal Expired", code: -32602, retryable: true }) }] };
     }
-    if (proposal.status !== "PENDING") {
-      return { content: [{ type: "text", text: JSON.stringify({ error: "Proposal already " + proposal.status, code: -32602, retryable: false }) }] };
+
+    // Status check — only PENDING can be acted on
+    if (row.status !== "PENDING") {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ error: "Proposal already " + row.status, code: -32602, retryable: false }),
+        }],
+      };
     }
-    proposal.status = input.decision === "APPROVE" ? "APPROVED" : input.decision === "REJECT" ? "REJECTED" : "OVERRIDDEN";
-    recordAuditLog("proposal_" + proposal.status.toLowerCase(), { proposalId: input.proposalId, decision: input.decision });
-    return { content: [{ type: "text", text: JSON.stringify({ proposalId: input.proposalId, status: proposal.status, expiresAt: proposal.expiresAt }) }] };
+
+    // Race condition guard: optimistic concurrency via status check in update
+    const targetStatus = input.decision === "APPROVE" ? "APPROVED"
+      : input.decision === "REJECT" ? "REJECTED"
+      : "OVERRIDDEN";
+
+    const updated = await prisma.proposal.updateMany({
+      where: { id: input.proposalId, status: "PENDING" },
+      data: { status: targetStatus },
+    });
+    if (updated.count === 0) {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ error: "Proposal already decided by concurrent request", code: -32602, retryable: false }),
+        }],
+      };
+    }
+
+    await recordAuditLog("proposal_" + targetStatus.toLowerCase(), {
+      proposalId: input.proposalId,
+      decision: input.decision,
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ proposalId: input.proposalId, status: targetStatus, expiresAt: row.expiresAt }),
+      }],
+    };
   } catch (err) {
-    return { content: [{ type: "text", text: JSON.stringify({ error: String(err), code: -32603, retryable: true }) }] };
+    return {
+      content: [{ type: "text", text: JSON.stringify({ error: String(err), code: -32603, retryable: true }) }],
+    };
   }
 }
 
-/** Record audit event (async, non-blocking). */
-async function recordAuditLog(eventType: string, props: Record<string, unknown>): Promise<void> {
-  try {
-    const prisma = getPrismaClient();
-    await prisma.metricEvent.create({ data: { eventType, properties: JSON.stringify({ ...props, timestamp: new Date().toISOString() }) } });
-  } catch {
-    // Fallback to local log file
-    try {
-      if (!existsSync(LOG_DIR)) mkdirSync(LOG_DIR, { recursive: true });
-      writeFileSync(join(LOG_DIR, "fallback.log"), JSON.stringify({ eventType, props, timestamp: new Date().toISOString() }) + "\n", { flag: "a" });
-    } catch { /* silent */ }
-  }
+/**
+ * Automatically mark expired proposals as EXPIRED.
+ * Called periodically or on-demand. Returns count of expired proposals.
+ */
+export async function expireProposals(): Promise<number> {
+  const prisma = getPrismaClient();
+  const result = await prisma.proposal.updateMany({
+    where: { status: "PENDING", expiresAt: { lt: new Date() } },
+    data: { status: "EXPIRED" },
+  });
+  return result.count;
 }
 
 /** Get proposal stats. */
-export function getProposalStats(): { active: number; expired: number; total: number } {
-  const now = Date.now();
-  let active = 0, expired = 0;
-  for (const p of proposals.values()) {
-    if (p.expiresAt > now && p.status === "PENDING") active++;
-    else if (p.expiresAt <= now) expired++;
+export async function getProposalStats(): Promise<{ active: number; expired: number; total: number }> {
+  const prisma = getPrismaClient();
+  const [active, expired, total] = await Promise.all([
+    prisma.proposal.count({ where: { status: "PENDING", expiresAt: { gt: new Date() } } }),
+    prisma.proposal.count({ where: { status: "EXPIRED" } }),
+    prisma.proposal.count(),
+  ]);
+  return { active, expired, total };
+}
+
+/** Find a proposal by ID. */
+export async function findProposalById(id: string): Promise<ProposalData | null> {
+  const prisma = getPrismaClient();
+  const row = await prisma.proposal.findUnique({ where: { id } });
+  return row ? toProposal(row) : null;
+}
+
+/**
+ * Record audit event to MetricEvent (async, non-blocking).
+ * Falls back to silent when DB is unavailable.
+ */
+async function recordAuditLog(eventType: string, props: Record<string, unknown>): Promise<void> {
+  try {
+    const prisma = getPrismaClient();
+    await prisma.metricEvent.create({
+      data: {
+        eventType,
+        properties: JSON.stringify({ ...props, timestamp: new Date().toISOString() }),
+      },
+    });
+  } catch {
+    // Silently ignore — audit logging is best-effort
   }
-  return { active, expired, total: proposals.size };
 }

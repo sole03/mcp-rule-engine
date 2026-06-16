@@ -2,9 +2,14 @@
   "mcpServers": {
     "cognition-engine": {
       "command": "node",
-      "args": ["dist/cli.js"],
+      "args": [
+        "dist/transport/cli.js"
+      ],
       "env": {
-        "DATABASE_URL": "file:./prisma/dev.db"
+        "DATABASE_URL": "file:./prisma/dev.db",
+        "EMBEDDING_PROVIDER": "openai",
+        "NODE_ENV": "development",
+        "OPENAI_API_KEY": "sk-your-key-here"
       },
       "cwd": "D:/Desktop/mcp"
     }

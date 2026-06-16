@@ -3,7 +3,7 @@
   "version": "1.0.0-alpha.2",
   "description": "MCP Server for Cognition Engine & Trust Governance Layer — weighted graph traversal, AST constraint solving, and auditable injection approval for AI agents.",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/transport/index.js",
   "scripts": {
     "build": "tsc",
     "postinstall": "npx prisma generate",
@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "license:check": "node scripts/check-license.js",
     "license:fix": "node scripts/check-license.js",
-    "bench": "npx tsx benchmarks/intent-recognizer.bench.ts && npx tsx benchmarks/graph-traverser.bench.ts"
+    "bench": "npx tsx benchmarks/intent-recognizer.bench.ts && npx tsx benchmarks/graph-traverser.bench.ts",
+    "start:http": "node dist/transport/http-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -48,7 +49,7 @@
   },
   "homepage": "https://github.com/sole03/mcp-rule-engine#readme",
   "bin": {
-    "mcp-cognition-engine": "dist/cli.js"
+    "mcp-cognition-engine": "dist/transport/cli.js"
   },
   "files": [
     "dist",

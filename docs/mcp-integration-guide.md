@@ -1,7 +1,7 @@
 # MCP Production-Grade Integration Guide
 
 > For: Cursor, Claude Desktop, Cline / Roo Code
-> Last updated: 2026-06-16
+> Last updated: 2026-06-17
 
 ---
 
@@ -34,7 +34,7 @@ Add to `.cursor/mcp.json`:
   "mcpServers": {
     "cognition-engine": {
       "command": "node",
-      "args": ["dist/index.js"],
+      "args": ["dist/cli.js"],
       "env": {
         "DATABASE_URL": "file:./dev.db"
       }
@@ -54,7 +54,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "cognition-engine": {
       "command": "node",
-      "args": ["path/to/mcp-rule-engine/dist/index.js"],
+      "args": ["path/to/mcp-rule-engine/dist/cli.js"],
       "env": {
         "DATABASE_URL": "file:./dev.db"
       }
@@ -146,7 +146,7 @@ All error responses include a `retryable` boolean field.
 |---------|-------|-----|
 | Tool list not loading | Missing environment variables | Set `DATABASE_URL` |
 | Server exits immediately | Prisma client not generated | Run `npx prisma generate` |
-| HTTP connection refused | Wrong port | Check `PORT` env var and firewall |
+| HTTP connection refused | Wrong port or server not running | Check `PORT` env var. Start with `npm run start:http` |
 | "Tool not found" | SDK version mismatch | Use @modelcontextprotocol/sdk >= 1.0 |
 | Resource returns empty | Database not migrated | Run `npx prisma migrate deploy` |
 

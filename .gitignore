@@ -1,5 +1,5 @@
 node_modules/
-data/
+/data/
 dist/
 .env
 
@@ -11,3 +11,5 @@ logs/
 *.db-wal
 
 *.tgz
+
+.cognition/

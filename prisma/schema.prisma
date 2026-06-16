@@ -26,10 +26,17 @@ model Rule {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   lastUsedAt      DateTime?
+  // Rule lifecycle immune fields: cold-start buffer (immunityUntil), cold storage (archivedAt), auto-renew (expiresAt)
+  immunityUntil   DateTime?
+  archivedAt      DateTime?
+  expiresAt       DateTime?
+  renewCount      Int         @default(0)
   diffLogs        DiffLog[]
   conflictA       ConflictRecord[] @relation("conflictRuleA")
   conflictB       ConflictRecord[] @relation("conflictRuleB")
   versions        RuleVersion[]
+
+  @@index([archivedAt])
 }
 
 model DiffLog {
@@ -101,8 +108,36 @@ model Proposal {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  approvalRequests ApprovalRequest[]
+
   @@unique([contextHash, status]) // only one PENDING per contextHash
   @@index([status])
+  @@index([expiresAt])
+}
+
+
+// ── Approval Workflow (#16) ─────────────────────────────
+// Multi-stage approval with escalation, delegation, webhooks.
+// Stages: PENDING → PENDING_REVIEW → APPROVED | REJECTED | ESCALATED | EXPIRED | CANCELLED
+model ApprovalRequest {
+  id          String    @id @default(cuid())
+  proposalId  String
+  stage       String    @default("PENDING")
+  contextHash String
+  toolName    String
+  payload     String?
+  configJson  String    // JSON — ApprovalConfig
+  votesJson   String    // JSON — ReviewerVote[]
+  assignedTo  String?
+  expiresAt   DateTime
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  proposal    Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([stage])
+  @@index([assignedTo])
   @@index([expiresAt])
 }
 

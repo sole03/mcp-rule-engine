@@ -52,7 +52,7 @@ export const RESOURCES = [
     uri: "cognition://docs/overview",
     name: "Cognition Engine Documentation",
     description:
-      "Full MCP tool documentation from docs/mcp-integration-guide.md. Agents can read this to learn how to use cognition_query, cognition_validate, and cognition_feedback.",
+      "GovernFlow project README. Agents can read this to understand the project architecture, quickstart guide, and available MCP tools.",
     mimeType: "text/markdown",
   },
   {
@@ -176,9 +176,9 @@ async function readCognitionStats(): Promise<{ contents: { uri: string; mimeType
 async function readCognitionDocs(): Promise<{ contents: { uri: string; mimeType: string; text: string }[] }> {
   let text: string;
   try {
-    text = readFileSync(join(projectRoot, "docs", "mcp-integration-guide.md"), "utf-8");
+    text = readFileSync(join(projectRoot, "README.md"), "utf-8");
   } catch {
-    text = "# Cognition Engine API\n\nDocumentation file not found. See docs/mcp-integration-guide.md\n";
+    text = readFileSync(join(projectRoot, "OPTIMIZATION.md"), "utf-8");
   }
   return {
     contents: [{

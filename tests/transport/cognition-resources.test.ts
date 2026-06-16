@@ -67,6 +67,6 @@ describe("readCognitionDocs", () => {
     const result = await handleReadResource("cognition://docs/overview");
     const text = result.contents[0].text;
     expect(text.length).toBeGreaterThan(100);
-    expect(text).toContain("cognition_query");
+    expect(text).toContain("GovernFlow");
   });
 });

@@ -116,6 +116,7 @@ export interface ValidationError {
  * Validate input against a zod schema. Returns validated data or structured error.
  * Use at the top of every tool handler.
  */
+// NOTE: zod v4 uses .issues (not .errors) on ZodError. See https://zod.dev/v4
 export function validateInput<T>(
   schema: z.ZodSchema<T>,
   args: unknown,

@@ -51,7 +51,23 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: RuleR
       await ruleRepo.create({ ...result.ruleSpec, projectId: input.projectId });
       await metricRepo.track("rule_auto_generated", { language: input.language, source: "capture_diff" });
     }
-    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: result.notification ?? null, warnings: warnings.length > 0 ? warnings : undefined }) }] };
+    // Fallback: even when no high-confidence rule is generated, capture a low-confidence
+    // candidate into the rule repo so the cognition graph can learn from this diff.
+    if (!result.generatedRule && diffResult.operations.length > 0) {
+      const fallbackOp = diffResult.operations[0];
+      const fallbackSpec = {
+        type: (fallbackOp.type === "MOVE" ? "restructure" : "replace") as any,
+        pattern: fallbackOp.originalText ?? "",
+        suggestion: fallbackOp.modifiedText ?? "",
+        language: input.language,
+        confidence: "low" as any,
+      };
+      if (fallbackSpec.pattern && fallbackSpec.suggestion) {
+        try { await ruleRepo.create({ ...fallbackSpec, projectId: input.projectId }); }
+        catch { /* best-effort; rule may conflict */ }
+      }
+    }
+    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: result.notification ?? "fallback: low-confidence rule captured", warnings: warnings.length > 0 ? warnings : undefined }) }] };
   } else {
     const card = await buildConfirmCard(diffResult.operations, input.language, distinctFiles, repeatCount, RULE_GENERATION_THRESHOLDS.repeatWindowDays, metricRepo);
     return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, confirmCard: card.card ?? null, warnings: warnings.length > 0 ? warnings : undefined }) }] };

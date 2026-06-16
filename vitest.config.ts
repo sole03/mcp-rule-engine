@@ -5,6 +5,7 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
     // Per-worker DB setup to prevent cross-worker FK race conditions
+    cache: false,
     setupFiles: ["./vitest.setup.ts"],
   },
 });

@@ -118,7 +118,8 @@ function toAstTemplate(r: Prisma.AstTemplateGetPayload<{}>): AstTemplateData {
 
 // ── Repository ─────────────────────────────────────────────
 
-export class CognitionRepository {
+import type { ICognitionRepository } from "./repository-interfaces.js";
+export class CognitionRepository implements ICognitionRepository {
   private nodeCache = new LRUCache<CognitionNodeData[]>(500, 5 * 60 * 1000);
   private neighborCache = new LRUCache<SubgraphResult>(500, 2 * 60 * 1000);
   /**

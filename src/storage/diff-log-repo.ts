@@ -38,7 +38,8 @@ function toRecord(r: Prisma.DiffLogGetPayload<{}>): DiffLogRecord {
   };
 }
 
-export class DiffLogRepo {
+import type { IDiffLogRepository } from "./repository-interfaces.js";
+export class DiffLogRepo implements IDiffLogRepository {
   async create(data: {
     filePath: string; fileExtension: string; language: string;
     projectId?: string; originalHash: string; modifiedHash: string;

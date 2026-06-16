@@ -17,7 +17,7 @@
 import { Prisma } from "@prisma/client";
 import { getPrismaClient } from "./client.js";
 import { ConflictResolution } from "../types.js";
-import { RuleRepo } from "./rule-repo.js";
+import type { IRuleRepository } from "./repository-interfaces.js";
 
 export interface ConflictRecord {
   id: string; ruleAId: string; ruleBId: string;
@@ -25,8 +25,9 @@ export interface ConflictRecord {
   batchChoice?: string; resolvedAt?: Date; createdAt: Date;
 }
 
-export class ConflictRepo {
-  constructor(private ruleRepo: RuleRepo) {}
+import type { IConflictRepository } from "./repository-interfaces.js";
+export class ConflictRepo implements IConflictRepository {
+  constructor(private ruleRepo: IRuleRepository) {}
 
   async findById(id: string): Promise<ConflictRecord | null> {
     const prisma = getPrismaClient();
@@ -75,3 +76,4 @@ export class ConflictRepo {
     });
   }
 }
+

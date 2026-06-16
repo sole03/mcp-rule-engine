@@ -15,8 +15,8 @@
  */
 
 import { existsSync, readFileSync } from "fs";
-import { RuleRepo } from "../storage/rule-repo.js";
-import { MetricRepo } from "../storage/metric-repo.js";
+import type { IRuleRepository } from "../storage/repository-interfaces.js";
+import type { IMetricRepository } from "../storage/repository-interfaces.js";
 import { matchRules } from "../legacy-engine/rule-matcher.js";
 import { truncateRules } from "../legacy-engine/token-controller.js";
 import { QueryRulesInput, MatchContext, TOKEN_LIMITS } from "../types.js";
@@ -28,7 +28,7 @@ function generateEnforcementBlock(rules: { type: string; pattern: string; sugges
   return `<rules_enforcement>\n${lines.join("\n")}\n</rules_enforcement>`;
 }
 
-export async function handleQueryRules(input: QueryRulesInput, ruleRepo: RuleRepo, metricRepo: MetricRepo) {
+export async function handleQueryRules(input: QueryRulesInput, ruleRepo: IRuleRepository, metricRepo: IMetricRepository) {
   const startTime = performance.now();
   const ext = input.filePath.split(".").pop() ?? "";
   // Read file content for pattern matching; silently continue if file is unavailable

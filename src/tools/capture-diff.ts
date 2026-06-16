@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { RuleRepo } from "../storage/rule-repo.js";
-import { DiffLogRepo } from "../storage/diff-log-repo.js";
-import { MetricRepo } from "../storage/metric-repo.js";
+import type { IRuleRepository } from "../storage/repository-interfaces.js";
+import type { IDiffLogRepository } from "../storage/repository-interfaces.js";
+import type { IMetricRepository } from "../storage/repository-interfaces.js";
 import { computeDiffWithFallback } from "../legacy-engine/parsers.js";
 import { processSilent } from "../modes/silent.js";
 import { buildConfirmCard } from "../modes/confirm.js";
@@ -28,7 +28,7 @@ function simpleHash(s: string): string {
   return hash.toString(16);
 }
 
-export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: RuleRepo, diffLogRepo: DiffLogRepo, metricRepo: MetricRepo, mode: "silent" | "confirm") {
+export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRuleRepository, diffLogRepo: IDiffLogRepository, metricRepo: IMetricRepository, mode: "silent" | "confirm") {
   const startTime = performance.now();
   const fileExtension = input.filePath.split(".").pop() ?? "";
   const originalHash = simpleHash(input.originalContent);

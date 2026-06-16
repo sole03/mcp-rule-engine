@@ -16,7 +16,8 @@
 
 import { getPrismaClient } from "./client.js";
 
-export class MetricRepo {
+import type { IMetricRepository } from "./repository-interfaces.js";
+export class MetricRepo implements IMetricRepository {
   async track(eventType: string, properties?: Record<string, unknown>): Promise<void> {
     const prisma = getPrismaClient();
     await prisma.metricEvent.create({

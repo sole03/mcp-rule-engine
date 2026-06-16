@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { ConflictRepo } from "../storage/conflict-repo.js";
-import { RuleRepo } from "../storage/rule-repo.js";
-import { MetricRepo } from "../storage/metric-repo.js";
+import type { IConflictRepository } from "../storage/repository-interfaces.js";
+import type { IRuleRepository } from "../storage/repository-interfaces.js";
+import type { IMetricRepository } from "../storage/repository-interfaces.js";
 import { applyResolution } from "../conflict/arbitrator.js";
 import { ResolveConflictInput } from "../types.js";
 
-export async function handleResolveConflict(input: ResolveConflictInput, conflictRepo: ConflictRepo, ruleRepo: RuleRepo, metricRepo: MetricRepo) {
+export async function handleResolveConflict(input: ResolveConflictInput, conflictRepo: IConflictRepository, ruleRepo: IRuleRepository, metricRepo: IMetricRepository) {
   const conflict = await conflictRepo.findById(input.conflictId);
   if (!conflict) return { content: [{ type: "text", text: JSON.stringify({ error: "Conflict not found" }) }], isError: true };
   const ruleA = await ruleRepo.findById(conflict.ruleAId);

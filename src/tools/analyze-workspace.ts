@@ -16,9 +16,9 @@
 
 import { execSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
-import { RuleRepo } from "../storage/rule-repo.js";
-import { DiffLogRepo } from "../storage/diff-log-repo.js";
-import { MetricRepo } from "../storage/metric-repo.js";
+import type { IRuleRepository } from "../storage/repository-interfaces.js";
+import type { IDiffLogRepository } from "../storage/repository-interfaces.js";
+import type { IMetricRepository } from "../storage/repository-interfaces.js";
 import { computeDiffWithFallback } from "../legacy-engine/parsers.js";
 import { evaluateRuleCandidate } from "../legacy-engine/rule-generator.js";
 import { detectConflict } from "../conflict/arbitrator.js";
@@ -53,7 +53,7 @@ const CONCURRENCY = 5;
 
 export async function handleAnalyzeWorkspace(
   input: AnalyzeWorkspaceInput,
-  ruleRepo: RuleRepo, diffLogRepo: DiffLogRepo, metricRepo: MetricRepo,
+  ruleRepo: IRuleRepository, diffLogRepo: IDiffLogRepository, metricRepo: IMetricRepository,
 ) {
   const startTime = performance.now();
   const head = input.headCommit ?? "HEAD";

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import { RuleRepo } from "../storage/rule-repo.js";
-import { MetricRepo } from "../storage/metric-repo.js";
+import type { IRuleRepository } from "../storage/repository-interfaces.js";
+import type { IMetricRepository } from "../storage/repository-interfaces.js";
 import { ConfirmRuleInput } from "../types.js";
 
-export async function handleConfirmRule(input: ConfirmRuleInput, ruleRepo: RuleRepo, metricRepo: MetricRepo) {
+export async function handleConfirmRule(input: ConfirmRuleInput, ruleRepo: IRuleRepository, metricRepo: IMetricRepository) {
   const rule = await ruleRepo.findById(input.ruleId);
   if (!rule) return { content: [{ type: "text", text: JSON.stringify({ error: "Rule not found" }) }], isError: true };
   switch (input.action) {

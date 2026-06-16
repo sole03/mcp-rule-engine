@@ -53,6 +53,7 @@ import { handleAnalyzeWorkspace } from "./tools/analyze-workspace.js";
 import { handleCognitionQuery, handleCognitionValidate, handleCognitionFeedback } from "./tools/cognition-tools.js";
 import { handleApproveInjection } from "./tools/injection-approval.js";
 import { handleUpdateConfig } from "./tools/config-tools.js";
+import type { IRuleRepository, IDiffLogRepository, IConflictRepository, IMetricRepository } from "./storage/repository-interfaces.js";
 import { RESOURCES, handleReadResource } from "./resources/cognition-resources.js";
 import {
   validateInput,
@@ -79,10 +80,10 @@ const server = new Server(
   { capabilities: { tools: {}, resources: {} } },
 );
 
-const ruleRepo = new RuleRepo();
-const diffLogRepo = new DiffLogRepo();
-const metricRepo = new MetricRepo();
-const conflictRepo = new ConflictRepo(ruleRepo);
+const ruleRepo: IRuleRepository = new RuleRepo();
+const diffLogRepo: IDiffLogRepository = new DiffLogRepo();
+const metricRepo: IMetricRepository = new MetricRepo();
+const conflictRepo: IConflictRepository = new ConflictRepo(ruleRepo);
 
 async function getMode(): Promise<"silent" | "confirm"> {
   const prisma = getPrismaClient();
@@ -234,4 +235,6 @@ main().catch((err) => {
   logger.fatal({ err }, "fatal startup error");
   process.exit(1);
 });
+
+
 

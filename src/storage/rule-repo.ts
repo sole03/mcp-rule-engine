@@ -41,7 +41,8 @@ export function toRule(r: Prisma.RuleGetPayload<{}>): Rule {
   };
 }
 
-export class RuleRepo {
+import type { IRuleRepository } from "./repository-interfaces.js";
+export class RuleRepo implements IRuleRepository {
   async create(spec: RuleSpec & { projectId?: string }): Promise<Rule> {
     const prisma = getPrismaClient();
     const r = await prisma.rule.create({

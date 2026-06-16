@@ -71,7 +71,7 @@ flowchart LR
 ### Setup
 
 \`\`\`bash
-git clone <repo-url> && cd mcp-rule-engine
+git clone <repo-url> && cd governflow
 npm install
 npx prisma db push
 npm run build
@@ -116,7 +116,7 @@ Add to \`claude_desktop_config.json\`:
   "mcpServers": {
     "cognition-engine": {
       "command": "node",
-      "args": ["path/to/mcp-rule-engine/dist/cli.js"],
+      "args": ["path/to/governflow/dist/cli.js"],
       "env": { "DATABASE_URL": "file:./dev.db" }
     }
   }

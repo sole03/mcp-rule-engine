@@ -21,6 +21,8 @@ import type {
   SelfHealMetrics,
   ArbitrationMetrics,
   GovernanceMetrics,
+  ShadowMetrics,
+  MigrationReport,
   Alert,
   AlertRule,
   AuditEvent,
@@ -116,6 +118,29 @@ export class MetricsCollector {
       governance,
       alerts,
     };
+  }
+
+  /**
+   * 查询影子模式统计（Phase 3.1）。
+   */
+  async queryShadowMetrics(): Promise<ShadowMetrics> {
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+    const [activeCount, totalHits, wouldBlockCount, expiringToday] = await Promise.all([
+      this.prisma.rule.count({
+        where: { shadowUntil: { not: null, gt: now } },
+      }),
+      this.prisma.shadowLog.count(),
+      this.prisma.shadowLog.count({
+        where: { wouldBlock: true },
+      }),
+      this.prisma.rule.count({
+        where: { shadowUntil: { not: null, gt: now, lte: todayEnd } },
+      }),
+    ]);
+
+    return { activeCount, totalHits, wouldBlockCount, expiringToday };
   }
 
   /**
@@ -424,6 +449,23 @@ export class MetricsCollector {
       .sort((a, b) => b.hits - a.hits)
       .slice(0, 10);
 
+    // Rule efficacy (Dimension 1.1)
+    const allRules = await this.prisma.rule.findMany({
+      where: { status: "active" },
+      select: { id: true, hitCount: true, falsePositiveCount: true, adoptedCount: true },
+    });
+    const ruleEfficacy = allRules.map(r => ({
+      ruleId: r.id,
+      hitCount: r.hitCount,
+      falsePositiveCount: r.falsePositiveCount,
+      adoptedCount: r.adoptedCount,
+      fpRate: r.hitCount > 0 ? r.falsePositiveCount / r.hitCount : 0,
+      adoptRate: r.hitCount > 0 ? r.adoptedCount / r.hitCount : 0,
+    }));
+
+    // Policy variant compare (Dimension 1.2)
+    const policyVariantCompare = null; // populated by audit worker
+
     return {
       activeRuleCount,
       pendingProposalCount,
@@ -431,6 +473,8 @@ export class MetricsCollector {
       rejectionRate: totalProposals > 0 ? rejected / totalProposals : 0,
       immuneStats,
       topMatchedPolicies,
+      ruleEfficacy,
+      policyVariantCompare,
     };
   }
 

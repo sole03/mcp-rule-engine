@@ -86,6 +86,12 @@ export interface AppealEvidence {
 // ── 约束仲裁器 ──
 
 export class ConstraintArbitrator {
+  // ── Static: Human veto protocol (Phase 3.2) ──
+  static pausedUntil: number = 0; // timestamp ms
+  static pause(minutes: number): void { this.pausedUntil = Date.now() + minutes * 60_000; }
+  static resume(): void { this.pausedUntil = 0; }
+  static isPaused(): boolean { return Date.now() < this.pausedUntil; }
+
   private contracts: ParsedConstraint[];
   private blameLog: Map<string, BlameRecord> = new Map();
   private appealLog: Map<string, AppealRecord> = new Map();

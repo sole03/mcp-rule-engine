@@ -53,9 +53,10 @@ import { handleAnalyzeWorkspace } from "./mcp/analyze-workspace.js";
 import { handleCognitionQuery, handleCognitionValidate, handleCognitionFeedback } from "./mcp/cognition-tools.js";
 import { handleApproveInjection } from "./mcp/injection-approval.js";
 import { handleUpdateConfig } from "./mcp/config-tools.js";
+import { handlePauseArbitrator, handleRollbackArbitration } from "./mcp/governance-veto.js";
 import type { IRuleRepository, IDiffLogRepository, IConflictRepository, IMetricRepository } from "../data/repository-interfaces.js";
 import { RESOURCES, handleReadResource } from "./cognition-resources.js";
-import { validateInput, AnalyzeWorkspaceSchema, CaptureDiffSchema, QueryRulesSchema, ConfirmRuleSchema, ResolveConflictSchema, ListRulesSchema, CognitionQuerySchema, CognitionValidateSchema, CognitionFeedbackSchema, ApproveInjectionSchema, UpdateConfigSchema } from "../adapters/schemas.js";
+import { validateInput, AnalyzeWorkspaceSchema, CaptureDiffSchema, QueryRulesSchema, ConfirmRuleSchema, ResolveConflictSchema, ListRulesSchema, CognitionQuerySchema, CognitionValidateSchema, CognitionFeedbackSchema, ApproveInjectionSchema, UpdateConfigSchema, GovernancePauseSchema, GovernanceRollbackSchema } from "../adapters/schemas.js";
 import { getPolicyEngine } from "../governance/policy-engine.js"
 import { DEFAULT_POLICIES } from "../governance/default-policies.js";
 import type { PolicyEvalContext } from "../governance/governance-types.js";
@@ -195,6 +196,8 @@ async function dispatchTool(name: string, args: Record<string, unknown> | undefi
     case "cognition_feedback": { const v = validateInput(CognitionFeedbackSchema, args, name); if (!v.success) return v.error; return await handleCognitionFeedback(v.data as any); }
     case "cognition_approve_injection": { const v = validateInput(ApproveInjectionSchema, args, name); if (!v.success) return v.error; return await handleApproveInjection(v.data as any); }
     case "cognition_update_config": { const v = validateInput(UpdateConfigSchema, args, name); if (!v.success) return v.error; return await handleUpdateConfig(v.data as any); }
+    case "governance_pause_arbitrator": { const v = validateInput(GovernancePauseSchema, args, name); if (!v.success) return v.error; return await handlePauseArbitrator(v.data as any); }
+    case "governance_rollback_arbitration": { const v = validateInput(GovernanceRollbackSchema, args, name); if (!v.success) return v.error; return await handleRollbackArbitration(v.data as any); }
     default: throw new McpError(ErrorCode.MethodNotFound, "Unknown tool: " + name);
   }
 }

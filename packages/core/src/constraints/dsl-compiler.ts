@@ -266,6 +266,52 @@ function parseStringArray(s: string): string[] {
   return inner.split(",").map(item => unquote(item.trim())).filter(Boolean);
 }
 
+
+// ── Migration Report (Phase 3.3) ──
+
+export interface MigrationReport {
+  before: { count: number; avgFields: number };
+  after: { count: number; avgFields: number };
+  deltas: { countChange: number; coverageChange: number };
+}
+
+/**
+ * Generate a migration report comparing old constraint list to new parsed constraints.
+ * Pure computation — no DB access. Caller provides old/new constraint lists.
+ */
+export function generateMigrationReport(
+  oldConstraints: string[],
+  newConstraints: ParsedConstraint[],
+): MigrationReport {
+  const beforeParsed = oldConstraints.flatMap(src => {
+    try { return compileConstraints(src); } catch { return []; }
+  });
+  const beforeCount = beforeParsed.length;
+  const beforeTotalFields = beforeParsed.reduce(
+    (sum, c) => sum + c.constraints.reduce((s, ast) => s + Object.keys(ast.fields).length, 0), 0,
+  );
+  const beforeAvgFields = beforeCount > 0 ? beforeTotalFields / beforeCount : 0;
+
+  const afterCount = newConstraints.length;
+  const afterTotalFields = newConstraints.reduce(
+    (sum, c) => sum + c.constraints.reduce((s, ast) => s + Object.keys(ast.fields).length, 0), 0,
+  );
+  const afterAvgFields = afterCount > 0 ? afterTotalFields / afterCount : 0;
+
+  const countChange = afterCount - beforeCount;
+  const beforeCoverage = beforeAvgFields;
+  const afterCoverage = afterAvgFields;
+  const coverageChange = beforeCoverage > 0
+    ? (afterCoverage - beforeCoverage) / beforeCoverage
+    : afterCoverage > 0 ? 1 : 0;
+
+  return {
+    before: { count: beforeCount, avgFields: beforeAvgFields },
+    after: { count: afterCount, avgFields: afterAvgFields },
+    deltas: { countChange, coverageChange: Math.round(coverageChange * 10000) / 10000 },
+  };
+}
+
 function parseChildCount(s: string): { min?: number; max?: number } {
   const result: { min?: number; max?: number } = {};
   const inner = s.replace(/^\{/, "").replace(/\}$/, "").trim();

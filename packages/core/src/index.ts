@@ -35,6 +35,7 @@ export type { ExecuteRequest, ExecuteResult } from "./cognition/cognition-core.j
 export { CowSandbox } from "./sandbox/cow-sandbox.js";
 export { SelfHealController } from "./sandbox/self-heal-loop.js";
 export { SafetyValve } from "./sandbox/safety-valve.js";
+export { HealthGate } from "./sandbox/health-gate.js";
 export type { SelfHealConfig, SelfHealResult } from "./sandbox/self-heal-loop.js";
 
 // ── Constraints (Phase 3) ──
@@ -79,6 +80,28 @@ export {
   TEMPLATE_SUMMARY,
 } from "./constraints/templates/index.js";
 
+
+// ── Proposal Layer (Phase 5 — Rego Compiler + Structured Generator + Prompt Pipeline) ──
+export { RegoCompiler } from "./proposal/rego-compiler.js";
+export type { RegoPolicy, CompileOptions } from "./proposal/rego-compiler.js";
+export { StructuredGenerator } from "./proposal/structured-generator.js";
+export { RegoPolicySchema, ProposalInputSchema } from "./proposal/structured-generator.js";
+export type { RegoPolicyGenerated, GenerateOptions } from "./proposal/structured-generator.js";
+export { PromptPipeline } from "./proposal/prompt-pipeline.js";
+export type { FewShotExample, PipelineResult } from "./proposal/prompt-pipeline.js";
+// ── Audit (Phase 4 — Dimension 4) ──
+// RoiAuditor removed — "audit is Git History"
+// export { RoiAuditor } from "./audit/roi-auditor.js";
+// export type { RoiAuditorOptions, RoiWeights } from "./audit/roi-auditor.js";
+export { SatisfactionTracker } from "./audit/satisfaction-tracker.js";
+export type { SatisfactionTrackerOptions } from "./audit/satisfaction-tracker.js";
+export type {
+  ModuleRoi,
+  RoiReport,
+  SatisfactionEntry,
+  SatisfactionMetrics,
+} from "./audit/types.js";
+
 // ── Dashboard (Phase 4) ──
 export {
   MetricsCollector,
@@ -94,4 +117,19 @@ export type {
   Alert,
   AlertRule,
   AuditEvent,
+  RuleEfficacy,
+  PolicyVariantCompare,
+  PreviewResult,
+  ShadowMetrics,
+  MigrationReport,
 } from "./dashboard/index.js";
+
+// ── Delivery (Phase 4 — GitOps + Canary) ──
+export { GitOpsEngine } from "./delivery/gitops-engine.js";
+export type { GitOpsOptions, PrDescription } from "./delivery/gitops-engine.js";
+export { CanaryController, DEFAULT_CANARY_STAGES } from "./delivery/canary-controller.js";
+export type {
+  CanaryStage,
+  CanaryStatus,
+  CanaryState,
+} from "./delivery/canary-controller.js";

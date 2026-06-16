@@ -23,6 +23,9 @@ model Rule {
   category        String?
   status          String   @default("active")
   matchCount      Int      @default(0)
+  hitCount          Int      @default(0)
+  falsePositiveCount Int      @default(0)
+  adoptedCount      Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   lastUsedAt      DateTime?
@@ -31,12 +34,17 @@ model Rule {
   archivedAt      DateTime?
   expiresAt       DateTime?
   renewCount      Int         @default(0)
+  // Phase 3: shadow mode (null=activated, future date=shadow period)
+  shadowUntil     DateTime?
   diffLogs        DiffLog[]
   conflictA       ConflictRecord[] @relation("conflictRuleA")
   conflictB       ConflictRecord[] @relation("conflictRuleB")
   versions        RuleVersion[]
+  shadowLogs      ShadowLog[]
+  policyVariants    PolicyVariant[]
 
   @@index([archivedAt])
+  @@index([shadowUntil])
 }
 
 model DiffLog {
@@ -198,4 +206,34 @@ model AstTemplate {
   createdAt        DateTime       @default(now())
 
   node             CognitionNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+}
+
+
+// A/B 策略变体 — Dimension 1.2
+model PolicyVariant {
+  id            String   @id @default(uuid())
+  basePolicyId  String
+  variant       String   // "A" | "B"
+  overrides     String   // JSON — 覆盖的策略参数
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  rule          Rule     @relation(fields: [basePolicyId], references: [id], onDelete: Cascade)
+
+  @@index([basePolicyId])
+  @@index([variant])
+}
+
+
+// A/B 策略变体 — Dimension 1.2
+// Shadow Mode Log (Phase 3.1 — mandatory shadow mode tracking)
+model ShadowLog {
+  id          String   @id @default(uuid())
+  ruleId      String
+  filePath    String
+  matchedAt   DateTime @default(now())
+  wouldBlock  Boolean  @default(false)
+  rule        Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([matchedAt])
 }

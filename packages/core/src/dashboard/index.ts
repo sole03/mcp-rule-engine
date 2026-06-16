@@ -9,4 +9,13 @@ export type {
   Alert,
   AlertRule,
   AuditEvent,
+  RuleEfficacy,
+  PolicyVariantCompare,
+  PreviewResult,
+  ShadowMetrics,
+  MigrationReport,
+  RoiReport,
+  ModuleRoi,
+  SatisfactionMetrics,
+  SatisfactionEntry,
 } from "./types.js";

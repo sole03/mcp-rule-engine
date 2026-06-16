@@ -1,7 +1,7 @@
 {
-  "name": "@sole03/rule-engine-dashboard",
+  "name": "@wind-coms/governflow-dashboard",
   "version": "0.1.0",
-  "description": "Cognition dashboard with Chart.js visualization for the AI-native governance infrastructure.",
+  "description": "GovernFlow dashboard — metrics collector and visualization for the AI-native governance pipeline.",
   "type": "module",
   "main": "dist/server.js",
   "types": "dist/server.d.ts",
@@ -12,14 +12,31 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
-    "@sole03/rule-engine-core": "*"
+    "@wind-coms/governflow-core": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
   },
-  "keywords": ["dashboard", "cognition", "governance", "ai-agent"],
+  "keywords": [
+    "governflow",
+    "dashboard",
+    "governance",
+    "metrics",
+    "ai-agent",
+    "visualization"
+  ],
   "license": "Apache-2.0",
-  "publishConfig": { "access": "public" }
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sole03/mcp-rule-engine.git",
+    "directory": "packages/dashboard"
+  },
+  "bugs": {
+    "url": "https://github.com/sole03/mcp-rule-engine/issues"
+  },
+  "homepage": "https://github.com/sole03/mcp-rule-engine/tree/main/packages/dashboard"
 }

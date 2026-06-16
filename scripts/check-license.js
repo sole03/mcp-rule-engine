@@ -1,12 +1,12 @@
 /**
  * License header checker for Apache 2.0 compliance.
- * Scans all .ts files under src/ and tests/, verifies header presence.
+ * Scans all .ts files under src/, tests/, and packages/, verifies header presence.
  * Exit code 0 = all OK, 1 = missing headers.
  */
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
-const TARGET_DIRS = ["src", "tests"];
+const TARGET_DIRS = ["src", "tests", "packages"];
 const SHEBANG = "#!/usr/bin/env node";
 const HEADER_START = "/**";
 const HEADER_COPYRIGHT = "Copyright 2026 熊高锐";
@@ -31,10 +31,8 @@ for (const d of TARGET_DIRS) scanFiles(d, files);
 let missing = 0;
 for (const f of files) {
   const raw = readFileSync(f, "utf-8");
-  // Normalize line endings to \n for cross-platform comparison
   const content = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // For files with shebang, skip it before checking
   const checkContent = content.startsWith(SHEBANG + "\n")
     ? content.slice(SHEBANG.length + 1)
     : content;

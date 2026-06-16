@@ -105,6 +105,14 @@ export const UpdateConfigSchema = z.object({
   expertMode: z.boolean().optional(),
 });
 
+export const GovernancePauseSchema = z.object({
+  minutes: z.number().min(1).max(1440),
+});
+
+export const GovernanceRollbackSchema = z.object({
+  since: z.string().min(1, "since (ISO datetime) is required"),
+});
+
 // ── Validation Helper ──────────────────────────────────────
 
 export interface ValidationError {

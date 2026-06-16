@@ -1,7 +1,7 @@
 {
-  "name": "@sole03/rule-engine-core",
+  "name": "@wind-coms/governflow-core",
   "version": "0.1.0",
-  "description": "Protocol-agnostic cognition engine core for AI agents.",
+  "description": "Protocol-agnostic governance kernel for GovernFlow — constraint DSL compiler, policy engine, COW sandbox, perception & delivery pipeline.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -37,7 +37,30 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
   },
-  "keywords": ["cognition","graph","ast","ai-agent","governance","rule-engine"],
+  "keywords": [
+    "governflow",
+    "governance",
+    "constraint",
+    "rego",
+    "opa",
+    "policy-engine",
+    "sandbox",
+    "ast",
+    "pipeline",
+    "shapley",
+    "canary"
+  ],
   "license": "Apache-2.0",
-  "publishConfig": { "access": "public" }
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sole03/mcp-rule-engine.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/sole03/mcp-rule-engine/issues"
+  },
+  "homepage": "https://github.com/sole03/mcp-rule-engine/tree/main/packages/core"
 }

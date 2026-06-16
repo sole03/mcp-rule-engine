@@ -1,4 +1,20 @@
 /**
+ * Copyright 2026 熊高锐
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * @file ConstraintArbitrator — 多 Agent 约束仲裁器
  *
  * Phase 3 升级版：从纯文本冲突检测升级为：
@@ -86,6 +102,12 @@ export interface AppealEvidence {
 // ── 约束仲裁器 ──
 
 export class ConstraintArbitrator {
+  // ── Static: Human veto protocol (Phase 3.2) ──
+  static pausedUntil: number = 0; // timestamp ms
+  static pause(minutes: number): void { this.pausedUntil = Date.now() + minutes * 60_000; }
+  static resume(): void { this.pausedUntil = 0; }
+  static isPaused(): boolean { return Date.now() < this.pausedUntil; }
+
   private contracts: ParsedConstraint[];
   private blameLog: Map<string, BlameRecord> = new Map();
   private appealLog: Map<string, AppealRecord> = new Map();

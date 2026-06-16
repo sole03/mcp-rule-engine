@@ -1,0 +1,87 @@
+name: Rule Verification
+
+on:
+  pull_request:
+    paths:
+      - 'packages/core/src/constraints/**'
+      - 'packages/core/src/proposal/**'
+      - 'packages/core/src/verification/**'
+      - 'packages/core/src/perception/**'
+      - 'packages/core/src/delivery/**'
+      - 'packages/core/src/dashboard/**'
+      - 'prisma/schema.prisma'
+      - 'tests/verification/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "file:./dev.db"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npx prisma migrate deploy
+
+      - name: Property Tests
+        run: npx vitest run tests/verification/
+
+      - name: Shadow Replay
+        run: npx tsx scripts/shadow-replay.ts
+
+      - name: Comment Results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            let body = '## 🔍 Rule Verification Results\n\n';
+
+            const propertyResultsPath = path.join(process.env.GITHUB_WORKSPACE, 'verification-results.json');
+            const shadowResultsPath = path.join(process.env.GITHUB_WORKSPACE, 'shadow-verification-results.json');
+
+            if (fs.existsSync(propertyResultsPath)) {
+              const propertyResults = JSON.parse(fs.readFileSync(propertyResultsPath, 'utf-8'));
+              body += '### Property Tests\n\n';
+              body += '| Invariant | Passed | Failed | Duration (ms) |\n';
+              body += '|-----------|--------|--------|---------------|\n';
+              for (const r of propertyResults) {
+                const status = r.failed === 0 ? '✅' : '❌';
+                body += `| ${status} ${r.name} | ${r.passed} | ${r.failed} | ${r.duration} |\n`;
+              }
+              body += '\n';
+            } else {
+              body += '### Property Tests\n\nNo results file found.\n\n';
+            }
+
+            if (fs.existsSync(shadowResultsPath)) {
+              const shadowResults = JSON.parse(fs.readFileSync(shadowResultsPath, 'utf-8'));
+              body += '### Shadow Replay\n\n';
+              body += `- Total cases: ${shadowResults.totalCases}\n`;
+              body += `- Passed: ${shadowResults.passed}\n`;
+              body += `- Failed: ${shadowResults.failed}\n`;
+              body += `- New false positives: ${shadowResults.newFalsePositives}\n`;
+              body += `- Duration: ${shadowResults.durationMs}ms\n`;
+            } else {
+              body += '### Shadow Replay\n\nNo results file found.\n\n';
+            }
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });

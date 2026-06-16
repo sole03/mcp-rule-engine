@@ -1,7 +1,7 @@
 {
-  "name": "mcp-cognition-engine",
+  "name": "governflow",
   "version": "1.0.0-alpha.2",
-  "description": "MCP Server for Cognition Engine & Trust Governance Layer — weighted graph traversal, AST constraint solving, and auditable injection approval for AI agents.",
+  "description": "GovernFlow — AI-native code governance pipeline. Four-layer assemble-over-build architecture.",
   "type": "module",
   "main": "dist/transport/index.js",
   "scripts": {
@@ -41,7 +41,7 @@
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
-  "author": "MCP Rule Engine Contributors",
+  "author": "熊高锐",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sole03/mcp-rule-engine.git"
@@ -51,7 +51,7 @@
   },
   "homepage": "https://github.com/sole03/mcp-rule-engine#readme",
   "bin": {
-    "mcp-cognition-engine": "dist/transport/cli.js"
+    "governflow": "dist/transport/cli.js"
   },
   "files": [
     "dist",
@@ -60,12 +60,21 @@
     "docs/"
   ],
   "keywords": [
-    "mcp",
-    "model-context-protocol",
-    "cognition",
-    "graph",
+    "governflow",
+    "governance",
+    "code-review",
     "ast",
-    "ai-agent"
+    "constraint",
+    "policy-engine",
+    "rego",
+    "opa",
+    "mcp",
+    "ai-agent",
+    "pipeline",
+    "gitops",
+    "canary",
+    "shadow-mode",
+    "property-testing"
   ],
   "license": "Apache-2.0",
   "publishConfig": {

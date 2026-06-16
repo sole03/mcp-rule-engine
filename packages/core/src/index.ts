@@ -1,5 +1,21 @@
 /**
- * @file @sole03/rule-engine-core — 协议无关的认知治理内核
+ * Copyright 2026 熊高锐
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file @wind-coms/governflow-core — 协议无关的认知治理内核
  *
  * 统一导出所有公共 API。
  * 该包不依赖任何 MCP SDK，可被任意 Agent 运行时消费。
@@ -35,6 +51,7 @@ export type { ExecuteRequest, ExecuteResult } from "./cognition/cognition-core.j
 export { CowSandbox } from "./sandbox/cow-sandbox.js";
 export { SelfHealController } from "./sandbox/self-heal-loop.js";
 export { SafetyValve } from "./sandbox/safety-valve.js";
+export { HealthGate } from "./sandbox/health-gate.js";
 export type { SelfHealConfig, SelfHealResult } from "./sandbox/self-heal-loop.js";
 
 // ── Constraints (Phase 3) ──
@@ -79,6 +96,28 @@ export {
   TEMPLATE_SUMMARY,
 } from "./constraints/templates/index.js";
 
+
+// ── Proposal Layer (Phase 5 — Rego Compiler + Structured Generator + Prompt Pipeline) ──
+export { RegoCompiler } from "./proposal/rego-compiler.js";
+export type { RegoPolicy, CompileOptions } from "./proposal/rego-compiler.js";
+export { StructuredGenerator } from "./proposal/structured-generator.js";
+export { RegoPolicySchema, ProposalInputSchema } from "./proposal/structured-generator.js";
+export type { RegoPolicyGenerated, GenerateOptions } from "./proposal/structured-generator.js";
+export { PromptPipeline } from "./proposal/prompt-pipeline.js";
+export type { FewShotExample, PipelineResult } from "./proposal/prompt-pipeline.js";
+// ── Audit (Phase 4 — Dimension 4) ──
+// RoiAuditor removed — "audit is Git History"
+// export { RoiAuditor } from "./audit/roi-auditor.js";
+// export type { RoiAuditorOptions, RoiWeights } from "./audit/roi-auditor.js";
+export { SatisfactionTracker } from "./audit/satisfaction-tracker.js";
+export type { SatisfactionTrackerOptions } from "./audit/satisfaction-tracker.js";
+export type {
+  ModuleRoi,
+  RoiReport,
+  SatisfactionEntry,
+  SatisfactionMetrics,
+} from "./audit/types.js";
+
 // ── Dashboard (Phase 4) ──
 export {
   MetricsCollector,
@@ -94,4 +133,19 @@ export type {
   Alert,
   AlertRule,
   AuditEvent,
+  RuleEfficacy,
+  PolicyVariantCompare,
+  PreviewResult,
+  ShadowMetrics,
+  MigrationReport,
 } from "./dashboard/index.js";
+
+// ── Delivery (Phase 4 — GitOps + Canary) ──
+export { GitOpsEngine } from "./delivery/gitops-engine.js";
+export type { GitOpsOptions, PrDescription } from "./delivery/gitops-engine.js";
+export { CanaryController, DEFAULT_CANARY_STAGES } from "./delivery/canary-controller.js";
+export type {
+  CanaryStage,
+  CanaryStatus,
+  CanaryState,
+} from "./delivery/canary-controller.js";

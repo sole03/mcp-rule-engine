@@ -13,3 +13,11 @@ logs/
 *.tgz
 
 .cognition/
+
+dev.db-journal
+
+JIRA_TASKS.md
+SPRINT_CHECKLIST.md
+
+# Codex local agent config
+.codex/

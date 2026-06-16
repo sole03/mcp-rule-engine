@@ -16,6 +16,7 @@
 
 import { getPrismaClient } from "../data/client.js";
 import { logger } from "../telemetry/logger.js";
+import { ShadowService } from "./shadow-service.js";
 import type { Rule, RuleStatus } from "../core/types.js";
 
 const COLD_START_DAYS = 7;
@@ -171,12 +172,17 @@ export class RuleImmuneEngine {
       }
     }
 
+    // ── 5. Shadow mode activation ──────────────────────
+    const shadowService = new ShadowService(this.prisma);
+    const shadowActivated = await shadowService.activateShadowRules();
+
     const summary = [
       coldStartImmune > 0 ? coldStartImmune + " rules in cold-start buffer" : "",
       autoRenewed > 0 ? autoRenewed + " rules auto-renewed" : "",
       archived > 0 ? archived + " rules archived" : "",
       revived > 0 ? revived + " rules revived from cold storage" : "",
       conflictLocked ? "CONFLICT LOCK ENGAGED" : "conflict rate nominal",
+      shadowActivated > 0 ? shadowActivated + " shadow rules activated" : "",
     ].filter(Boolean).join("; ");
 
     logger.info({

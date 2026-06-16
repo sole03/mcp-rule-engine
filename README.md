@@ -1,283 +1,183 @@
-# MCP Rule Engine — Cognition Engine & Trust Governance Layer
+# GovernFlow
 
-![build](https://img.shields.io/badge/build-passing-brightgreen)
-![coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
-![npm](https://img.shields.io/badge/npm-v1.0.0--alpha.2-orange)
-![MCP](https://img.shields.io/badge/MCP_v1.29.0-compliant-blue)
-[![License](https://img.shields.io/badge/license-Apache_2.0-blue)](LICENSE)
-[![Trademark Policy](https://img.shields.io/badge/trademark-policy-orange)](TRADEMARK.md)
+**AI-native code governance pipeline. Assemble, don't build.**
 
-> A production-grade MCP server that combines a cognition graph engine with a trusted governance layer. Provides intelligent code pattern matching, AST-level constraint validation, and auditable injection approval for AI agents.
-
-<!-- TEMP_BANNER_REMOVE_AFTER_2W -->
-> **📢 Protocol Update:** We have adopted Apache 2.0 licensing with a formal trademark policy. [Read the announcement →](DISCUSSION_ANNOUNCEMENT.md)
-<!-- /TEMP_BANNER -->
+GovernFlow 将 AI Agent 的代码治理从"自研轮子"重构为"组装业界工具链"的四层流水线。不建新平台，嵌入现有工作流。
 
 ---
 
+## 架构
 
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      GovernFlow                              │
+│                                                             │
+│  感知层       提案层        验证层         决策层            │
+│  Perception  Proposal     Verification   Delivery           │
+│  ──────────  ───────────  ─────────────  ─────────────────  │
+│  Merlion     Rego         Property      GitOps             │
+│  Bridge      Compiler     Tests         Engine             │
+│  +Shapley    +Structured  +Shadow       +Canary            │
+│  Attributor  Generator    Verifier      Controller         │
+│              +PromptPipe  +CI Workflow                     │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │        @sole03/rule-engine-core (内核)                │   │
+│  │  协议无关 · 零 MCP 依赖 · 可独立发布                   │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## The Problem It Solves
-
-AI Agents are powerful but chaotic. They generate code confidently, yet they lack a persistent *cognition layer* to remember project-specific patterns across sessions, and they lack a *governance layer* to enforce security boundaries on their own output. Without these, every agent session starts from zero — repeating the same mistakes, ignoring your team's conventions, and producing code that looks plausible but violates project invariants.
-
-This engine fixes that. It gives agents a **long-term graph memory** of project patterns (what works, what's forbidden, what's idiomatic in *this* codebase) and a **trusted approval workflow** so every injection is reviewed, audited, and accountable.
-
----
-
-## Core Features
-
-- **Cognition Graph Engine** — Intent recognition, weighted graph traversal, and AST constraint solving for intelligent code analysis
-- **Trust Governance** — Three-tier knowledge base with injection approval workflow, TTL-based proposals, and audit logging
-- **Universal Connectivity** — Stdio (local) and Streamable HTTP (remote) transports with full MCP lifecycle support
-- **Agent Hard Constraints** — Output schema enforcement with \`validationRequired\` auto-validation; non-compliant agent responses intercepted
-- **Hot Config Updates** — Dynamic threshold tuning with expert mode authorization and version chain tracking
-
----
-
-## Architecture
-
-\`\`\`mermaid
-flowchart LR
-    Agent["AI Agent (Cursor / Claude / Cline)"]
-    MCP["MCP Server (stdio / HTTP)"]
-    CV["Constraint Validator"]
-    GT["Graph Traverser"]
-    IA["Injection Approval"]
-    FL["Feedback Loop"]
-    DB[("SQLite / Prisma")]
-
-    Agent -->|tools/list → tools/call| MCP
-    MCP -->|cognition_validate| CV
-    MCP -->|cognition_query| GT
-    MCP -->|cognition_approve_injection| IA
-    MCP -->|cognition_feedback| FL
-    CV -->|parse + validate| GT
-    GT -->|weighted BFS| DB
-    IA -->|TTL proposal| DB
-    FL -->|update weights| DB
-    DB -->|graph data| GT
-\`\`\`
+| 层 | 组件 | 核心能力 |
+|---|------|---------|
+| **感知层** | `MerlionBridge` + `ShapleyAttributor` | Z-score 动态基线异常检测 + 多维根因归因 |
+| **提案层** | `RegoCompiler` + `StructuredGenerator` + `PromptPipeline` | JSON DSL → OPA Rego 编译器 + Zod 约束 LLM 输出 + Few-shot 自动编译 |
+| **验证层** | `PropertyTests` + `ShadowVerifier` + CI Workflow | 属性测试自动证伪 + 影子日志回放 + PR 自动验证 |
+| **决策层** | `GitOpsEngine` + `CanaryController` | DashboardSnapshot → PR Markdown + 5%→100% 金丝雀渐进交付 |
 
 ---
 
-## Quick Start
+## 快速开始
 
-### Prerequisites
-
-- Node.js >= 18
-- npm >= 9
-
-### Setup
-
-\`\`\`bash
-git clone <repo-url> && cd governflow
+```bash
+# 安装
+git clone https://github.com/sole03/mcp-rule-engine.git
+cd mcp-rule-engine
 npm install
-npx prisma db push
-npm run build
-\`\`\`
 
-### Start Server
+# 生成 Prisma Client + 数据库迁移
+npx prisma generate
+npx prisma migrate deploy
 
-\`\`\`bash
-# Stdio mode (default)
-node dist/index.js
+# 运行测试
+npm test                    # 291 tests, 37 files
 
-# HTTP mode
-TRANSPORT=http PORT=3000 node dist/index.js
-\`\`\`
+# 类型检查
+npx tsc --noEmit            # 0 errors
 
----
+# 启动 MCP Server (stdio)
+npm run dev
 
-## MCP Integration
+# 启动 HTTP Server
+npm run start:http
 
-### Cursor
+# 构建内核包
+npm run build:core          # @sole03/rule-engine-core
 
-Add to \`.cursor/mcp.json\`:
-
-\`\`\`json
-{
-  "mcpServers": {
-    "cognition-engine": {
-      "command": "node",
-      "args": ["dist/cli.js"],
-      "env": { "DATABASE_URL": "file:./dev.db" }
-    }
-  }
-}
-\`\`\`
-
-### Claude Desktop
-
-Add to \`claude_desktop_config.json\`:
-
-\`\`\`json
-{
-  "mcpServers": {
-    "cognition-engine": {
-      "command": "node",
-      "args": ["path/to/governflow/dist/cli.js"],
-      "env": { "DATABASE_URL": "file:./dev.db" }
-    }
-  }
-}
-\`\`\`
-
-### VS Code (GitHub Copilot Chat / VS Code MCP Extension)
-
-Add to your VS Code settings (User \`settings.json\` or workspace \`.vscode/mcp.json\`):
-
-\`\`\`json
-{
-  "mcp": {
-    "servers": {
-      "cognition-engine": {
-        "type": "stdio",
-        "command": "node",
-        "args": ["dist/cli.js"],
-        "env": { "DATABASE_URL": "file:./dev.db" }
-      }
-    }
-  }
-}
-\`\`\`
-
-### Cline / Roo Code (HTTP)
-
-\`\`\`json
-{
-  "mcpServers": {
-    "cognition-engine": {
-      "url": "http://localhost:3000",
-      "transport": "streamable-http"
-    }
-  }
-}
-\`\`\`
+# License 检查
+npm run license:check
+```
 
 ---
 
-## Trust Governance Protocol
+## 包体系
 
-### Three-Tier Knowledge
-
-| Tier | Scope | Node Type | Validation |
-|------|-------|-----------|------------|
-| Global | Universal patterns | NegativeConstraint = REJECT | Hard block |
-| Project | Project conventions | PositiveConstraint = WARN | Soft warning |
-| Reuse | Cross-project patterns | Intent + Heuristic | Weight-based |
-
-### Injection Proposal State Machine
-
-\`\`\`mermaid
-stateDiagram-v2
-    [*] --> PENDING: cognition_query triggers implicit proposal
-    PENDING --> APPROVED: cognition_approve_injection(proposalId, APPROVE)
-    PENDING --> REJECTED: cognition_approve_injection(proposalId, REJECT)
-    PENDING --> OVERRIDDEN: cognition_approve_injection(proposalId, OVERRIDE)
-    PENDING --> EXPIRED: TTL = 5 min elapsed
-    APPROVED --> [*]: Rules injected into graph
-    REJECTED --> [*]: Proposal discarded
-    OVERRIDDEN --> [*]: Force-injected (audit logged)
-    EXPIRED --> [*]: -32602 Proposal Expired + retryable:true
-\`\`\`
-
-Proposals are in-memory with a 5-minute TTL. Concurrent proposals for the same context hash return the existing proposal to prevent conflicts. Expired proposals return \`-32602 Proposal Expired\` with \`retryable: true\`.
-
-### Constraint Validation Dual-Mode
-
-- **REJECT (Hard Block)** — Returned as \`-32602\` + \`ruleId\`. Agent must stop.
-- **WARN (Soft Warning)** — Returned as violation. Agent may continue with user confirmation.
-
-### Config Hot Update
-
-Dynamic thresholds (similarity 0.7 / 0.9) are stored as \`CognitionNode(type=HEURISTIC)\`. Each update creates a new version node with the old node marked \`supersededBy\`. Requires \`expertMode: true\`.
-
-### Audit & Compliance
-
-All injection decisions, config changes, and validation events are recorded via \`MetricEvent\` with async non-blocking writes. On database write failure, events fall back to \`logs/fallback.log\`.
+| 包 | 路径 | 用途 |
+|----|------|------|
+| `governflow` | 根 | 完整项目 (MCP Server + CLI) |
+| `@sole03/rule-engine-core` | `packages/core` | 协议无关内核 (零 MCP 依赖) |
+| `@sole03/governflow-dashboard` | `packages/dashboard` | 指标收集与可视化 |
 
 ---
 
-## MCP Resources
+## 四层流水线详解
 
-| URI | Type | Content |
-|-----|------|---------|
-| \`cognition://schema\` | application/json | Cognition graph data model |
-| \`cognition://stats\` | application/json | Node/edge counts + approvalRate7d |
-| \`cognition://docs\` | text/markdown | Full tool documentation |
-| \`cognition://rules-changelog\` | application/json | Versioned rule change log |
+### 1. 感知层 — Perception
+
+```
+MerlionBridge              ShapleyAttributor
+Z-score + EMA + 季节性      多维根因归因
+       │                        │
+       ▼                        ▼
+  异常检测 ←── DashboardSnapshot ──→ 贡献度排序
+  (NORMAL/WARN/CRITICAL)            (团队/文件/时段)
+```
+
+- **MerlionBridge**: 纯 Node.js 实现，Z-score 基线 + EMA(α=0.1) 自适应 + 24h/7d 季节性分解
+- **ShapleyAttributor**: Shapley Value 近似算法，量化各维度对异常的贡献度
+
+### 2. 提案层 — Proposal
+
+```
+自然语言需求
+     │
+     ▼
+PromptPipeline ──→ StructuredGenerator ──→ RegoCompiler
+( Few-shot编译 )   ( Zod约束输出 )          ( JSON→Rego )
+                                           │
+                                           ▼
+                                     OPA Rego Policy
+```
+
+- **RegoCompiler**: 将自定义 JSON DSL 编译为标准 OPA Rego，支持形式化验证
+- **StructuredGenerator**: Zod v4 Schema 约束 LLM 输出，格式错误率 → 0
+- **PromptPipeline**: DSPy 风格 Few-shot 自动编译，Jaccard 相似度排序
+
+### 3. 验证层 — Verification
+
+```
+PR 创建
+   │
+   ▼
+Property Tests ──── Shadow Replay ──── CI Comment
+(3条不变量×500+)    (真实流量回放)       (结果回写PR)
+```
+
+- **PropertyTests**: `no-safe-op-blocked` / `merge-no-conflict` / `heal-monotonic` 三条不变量
+- **ShadowVerifier**: 影子日志回放，分类 PASS / NEW_FP / FIXED
+- **CI Workflow**: `.github/workflows/rule-verify.yml` — 每次 PR 自动触发
+
+### 4. 决策层 — Delivery
+
+```
+DashboardSnapshot + ShadowMetrics
+           │
+           ▼
+     GitOpsEngine ──→ PR Description (Markdown + Mermaid)
+           │
+           ▼
+     CanaryController
+     5% → 20% → 50% → 100%
+     (任一阶段恶化 → 自动回滚)
+```
+
+- **GitOpsEngine**: 将系统健康快照渲染为 PR Description，融入 Code Review 工作流
+- **CanaryController**: 渐进式交付，djb2 hash 确定性路由，自动健康检查
 
 ---
 
-## MCP Tools
+## 数据模型
 
-| Tool | Description | readOnlyHint |
-|------|-------------|:---:|
-| \`cognition_query\` | Query graph by context hash | ✅ |
-| \`cognition_validate\` | Validate code against AST templates | ✅ |
-| \`cognition_feedback\` | Provide feedback to refine traversal | ❌ |
-| \`cognition_approve_injection\` | Approve/reject proposals with TTL | ❌ |
-| \`cognition_update_config\` | Hot-update thresholds (expert mode) | ❌ |
-
----
-
-## Testing
-
-\`\`\`bash
-# Run all tests (118/118 passing)
-npm test
-
-# Run specific suite
-npx vitest run tests/protocol/
-\`\`\`
+| 模型 | 用途 |
+|------|------|
+| `Rule` + `hitCount/falsePositiveCount/adoptedCount` | 规则效能追踪 |
+| `PolicyVariant` | A/B 策略变体对比 |
+| `ShadowLog` | 影子模式运行日志 (7 天前置) |
+| `CognitionNode/Edge` | 认知图拓扑 |
+| `AstTemplate` | AST 级约束模板 |
 
 ---
 
-## Protocol Compliance
+## 文档
 
-This server conforms to **MCP Specification v1.29.0** and supports:
-
-- [x] initialize / initialized / ping / shutdown lifecycle
-- [x] tools/list + tools/call with JSON Schema input/output
-- [x] resources/list + resources/read with \`cognition://\` URI scheme
-- [x] StdioServerTransport and StreamableHTTPServerTransport
-- [x] Error codes: -32602 (invalid params), -32603 (internal), -32001 (timeout)
-- [x] Annotations: readOnlyHint, destructiveHint, openWorldHint
+| 文档 | 说明 |
+|------|------|
+| [OPTIMIZATION.md](./OPTIMIZATION.md) | 四维优化矩阵 — 痛点·举措·收益 |
+| [ASSEMBLY_OVER_BUILD.md](./ASSEMBLY_OVER_BUILD.md) | Implementation Spec — 战略对齐 + 技术选型 |
+| [TRACEABILITY.md](./TRACEABILITY.md) | 理论↔工程双向追溯 — 13/13 ✓ |
 
 ---
 
-## Contributing
+## 心法
 
-We welcome contributions from the community! Here's how you can get involved:
-
-- **Report a bug**: Open an [issue](../../issues/new?labels=bug) with reproduction steps.
-- **Suggest a feature**: Start a [discussion](../../discussions) to gather feedback before implementation.
-- **Submit a PR**: Follow the guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-For major changes, please open an issue first to discuss what you would like to change.
-
-### 🟢 New to the project?
-
-Looking for a place to start? Check out our [Good First Issues](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — they're specifically scoped for first-time contributors and include detailed context, acceptance criteria, and file references.
+> **不要构建系统，要构建流水线。**
+>
+> 让异常检测成为监控平台的插件，而非独立服务。
+> 让规则生成成为 CI 的一个 Step，而非后台黑盒。
+> 让人机协同成为 Code Review 的自然延伸，而非额外负担。
 
 ---
 
 ## License
 
-Copyright (c) 2026 熊高锐
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-Full license text: [LICENSE](LICENSE).
-
+Apache-2.0 © 2026 熊高锐

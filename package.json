@@ -1,7 +1,7 @@
 {
-  "name": "mcp-rule-engine",
-  "version": "1.0.0",
-  "description": "MCP Server for Cognition Engine and Trust Governance Layer",
+  "name": "mcp-cognition-engine",
+  "version": "1.0.0-alpha.1",
+  "description": "MCP Server for Cognition Engine & Trust Governance Layer — weighted graph traversal, AST constraint solving, and auditable injection approval for AI agents.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -34,7 +34,6 @@
     "vitest": "^2.1.0"
   },
   "author": "MCP Rule Engine Contributors",
-  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sole03/mcp-rule-engine.git"
@@ -42,5 +41,34 @@
   "bugs": {
     "url": "https://github.com/sole03/mcp-rule-engine/issues"
   },
-  "homepage": "https://github.com/sole03/mcp-rule-engine#readme"
+  "homepage": "https://github.com/sole03/mcp-rule-engine#readme",
+  "bin": {
+    "mcp-cognition-engine": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "prisma/schema.prisma",
+    "README.md",
+    "docs/"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "cognition",
+    "graph",
+    "ast",
+    "ai-agent"
+  ],
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "peerDependenciesMeta": {
+    "prisma": {
+      "optional": true
+    }
+  }
 }

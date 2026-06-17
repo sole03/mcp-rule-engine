@@ -16,12 +16,13 @@
  */
 
 /**
- * @file CLI Entry Point
- * Handles database initialization with schema-aware push before starting
- * the MCP server. Runs prisma db push unconditionally to sync schema changes
- * (new tables, indexes) without data loss.
+ * @file CLI Entry Point (Resilient)
  *
- * Priority: COGNITION_DB_PATH env > DATABASE_URL env > ~/.cognition/dev.db
+ * Starts the MCP server with graceful degradation:
+ * - Schema sync is best-effort — server starts even if it fails
+ * - Prisma client auto-generate only when truly missing
+ * - EPERM/EACCES errors are non-fatal (sandbox tolerance)
+ * - All execSync calls have timeouts
  */
 
 import { execSync } from "node:child_process";
@@ -29,10 +30,37 @@ import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 
-// ── Resolve database path ────────────────────────────────
-// Respect DATABASE_URL if already set (e.g., from MCP config env)
-// Otherwise use COGNITION_DB_PATH or the default home-directory path.
+// ── Helpers ──────────────────────────────────────────────
 
+function warn(msg: string) { console.error("[governflow] " + msg); }
+
+function execSafe(cmd: string, opts: { cwd?: string; timeoutMs?: number } = {}): { ok: boolean; output: string } {
+  try {
+    const result = execSync(cmd, {
+      cwd: opts.cwd,
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
+      stdio: "pipe",
+      timeout: opts.timeoutMs ?? 15_000,
+    });
+    return { ok: true, output: result.toString("utf-8").trim() };
+  } catch (err: any) {
+    const msg = err.stderr?.toString("utf-8")?.trim() ?? err.message ?? String(err);
+    return { ok: false, output: msg.slice(0, 300) };
+  }
+}
+
+function isPermissionError(msg: string): boolean {
+  return /EPERM|EACCES|permission denied/i.test(msg);
+}
+
+function isTransientError(msg: string): boolean {
+  return /timeout|ECONNREFUSED|ENOTFOUND|network|ETIMEDOUT|database is locked/i.test(msg);
+}
+
+// ── Project root ─────────────────────────────────────────
+const rootDir = resolvePath(import.meta.dirname!, "..", "..");
+
+// ── Resolve database path ────────────────────────────────
 function resolveDbUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   const dbPath = process.env.COGNITION_DB_PATH ?? join(homedir(), ".cognition", "dev.db");
@@ -44,14 +72,10 @@ function resolveDbUrl(): string {
 }
 
 // ── Schema Sync ──────────────────────────────────────────
-// Always push schema on startup. This is safe because prisma db push
-// only adds missing tables/columns and never drops data.
-// If DATABASE_URL was set externally (e.g., MCP config), it stays.
-
 function syncSchema(): void {
-  const prismaSchema = join(import.meta.dirname!, "..", "..", "prisma", "schema.prisma");
+  const prismaSchema = join(rootDir, "prisma", "schema.prisma");
   if (!existsSync(prismaSchema)) {
-    console.error("Warning: prisma/schema.prisma not found — skipping schema sync");
+    warn("prisma/schema.prisma not found — skipping schema sync");
     return;
   }
 
@@ -60,55 +84,51 @@ function syncSchema(): void {
     ? "npx prisma migrate deploy"
     : "npx prisma db push --skip-generate";
 
-  console.error("[mcp-cognition-engine] Syncing schema (" + (isProd ? "prod: migrate deploy" : "dev: db push") + ")...");
-  try {
-    execSync(command, {
-      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
-      stdio: "pipe",
-    });
-    console.error("[mcp-cognition-engine] Schema sync complete");
-  } catch (err) {
-    const errMsg = String(err);
-    console.error("[mcp-cognition-engine] Schema sync warning:", errMsg.slice(0, 200));
-    // EPERM in sandboxed environments — not fatal
-    if (errMsg.includes("EPERM") || errMsg.includes("EACCES")) {
-      console.error("[mcp-cognition-engine] Running in sandbox — schema sync skipped");
+  warn("Syncing schema (" + (isProd ? "migrate deploy" : "db push") + ")...");
+
+  const maxRetries = 2;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const result = execSafe(command, { cwd: rootDir, timeoutMs: 20_000 });
+    if (result.ok) {
+      warn("Schema sync complete");
+      return;
     }
+    if (isPermissionError(result.output)) {
+      warn("Schema sync skipped (sandbox)");
+      return;
+    }
+    if (attempt < maxRetries && isTransientError(result.output)) {
+      warn("Schema sync transient error, retry " + attempt + "/" + maxRetries + ": " + result.output);
+      // simple backoff
+      Atomics?.wait?.(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000 * attempt);
+      continue;
+    }
+    warn("Schema sync warning: " + result.output);
+    return; // non-fatal, continue to start server
   }
 }
 
-// ── Prisma Client Generation ──────────────────────────────
-// If postinstall was skipped (e.g. CI with --ignore-scripts),
-// generate the Prisma client on first run.
-
+// ── Prisma Client Check ──────────────────────────────────
 function ensurePrismaClient(): void {
-  try {
-    const entry = resolvePath(import.meta.dirname!, "..", "..", "node_modules", ".prisma", "client", "index.js");
-    if (!existsSync(entry)) throw new Error("Prisma client not generated");
-  } catch {
-    console.error("[mcp-cognition-engine] Prisma client not found — running generate...");
-    try {
-      execSync("npx prisma generate", {
-        cwd: resolvePath(import.meta.dirname!, "..", ".."),
-        env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
-        stdio: "pipe",
-      });
-      console.error("[mcp-cognition-engine] Prisma client generated");
-    } catch (err) {
-      const errMsg = String(err);
-      console.error("[mcp-cognition-engine] Failed to generate Prisma client:", errMsg.slice(0, 200));
-      if (errMsg.includes("EPERM") || errMsg.includes("EACCES")) {
-        console.error("[mcp-cognition-engine] Running in sandbox — skipping auto-generate. Ensure prisma client was pre-generated.");
-      } else {
-        process.exit(1);
-      }
-    }
+  const entry = join(rootDir, "node_modules", ".prisma", "client", "index.js");
+  if (existsSync(entry)) return;
+
+  warn("Prisma client not found — running generate...");
+  const result = execSafe("npx prisma generate", { cwd: rootDir, timeoutMs: 30_000 });
+  if (result.ok) {
+    warn("Prisma client generated");
+    return;
   }
+  if (isPermissionError(result.output)) {
+    warn("Skipping prisma generate (sandbox) — ensure pre-generated");
+    return;
+  }
+  // NOT fatal — the import will throw its own error if truly missing
+  warn("Prisma generate warning: " + result.output);
 }
 
-// ── Main ──────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────
 
-// Only set if not already provided (e.g., by MCP env config)
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = resolveDbUrl();
 }
@@ -116,9 +136,8 @@ if (!process.env.DATABASE_URL) {
 ensurePrismaClient();
 syncSchema();
 
-// Import and run the server
+// Start the MCP server — this is the only truly fatal failure
 import("./index.js").catch((err) => {
-  console.error("Fatal error:", err);
+  console.error("[governflow] Fatal: cannot start server:", String(err).slice(0, 300));
   process.exit(1);
 });
-

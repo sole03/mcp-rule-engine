@@ -70,6 +70,10 @@ function syncSchema(): void {
   } catch (err) {
     const errMsg = String(err);
     console.error("[mcp-cognition-engine] Schema sync warning:", errMsg.slice(0, 200));
+    // EPERM in sandboxed environments — not fatal
+    if (errMsg.includes("EPERM") || errMsg.includes("EACCES")) {
+      console.error("[mcp-cognition-engine] Running in sandbox — schema sync skipped");
+    }
   }
 }
 
@@ -91,8 +95,13 @@ function ensurePrismaClient(): void {
       });
       console.error("[mcp-cognition-engine] Prisma client generated");
     } catch (err) {
-      console.error("[mcp-cognition-engine] Failed to generate Prisma client:", String(err));
-      process.exit(1);
+      const errMsg = String(err);
+      console.error("[mcp-cognition-engine] Failed to generate Prisma client:", errMsg.slice(0, 200));
+      if (errMsg.includes("EPERM") || errMsg.includes("EACCES")) {
+        console.error("[mcp-cognition-engine] Running in sandbox — skipping auto-generate. Ensure prisma client was pre-generated.");
+      } else {
+        process.exit(1);
+      }
     }
   }
 }

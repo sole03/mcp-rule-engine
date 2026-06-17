@@ -83,13 +83,13 @@ function syncSchema(): void {
 
 function ensurePrismaClient(): void {
   try {
-    const entry = resolvePath(import.meta.dirname!, "..", "node_modules", ".prisma", "client", "index.js");
+    const entry = resolvePath(import.meta.dirname!, "..", "..", "node_modules", ".prisma", "client", "index.js");
     if (!existsSync(entry)) throw new Error("Prisma client not generated");
   } catch {
     console.error("[mcp-cognition-engine] Prisma client not found — running generate...");
     try {
       execSync("npx prisma generate", {
-        cwd: resolvePath(import.meta.dirname!, ".."),
+        cwd: resolvePath(import.meta.dirname!, "..", ".."),
         env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
         stdio: "pipe",
       });

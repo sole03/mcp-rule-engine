@@ -6,9 +6,9 @@
  * Copyright 2026 熊高锐 — Apache 2.0
  */
 
-import { GraphTraverser } from "../src/cognition-engine/graph-traverser.js";
-import { CognitionRepository, computeSemanticHash } from "../src/storage/cognition-repository.js";
-import { COGNITION_TYPES, EDGE_RELATIONS } from "../src/storage/cognition-types.js";
+import { GraphTraverser } from "../src/core/graph-traverser.js";
+import { CognitionRepository, computeSemanticHash } from "../src/data/cognition-repository.js";
+import { COGNITION_TYPES, EDGE_RELATIONS } from "../src/data/cognition-types.js";
 
 const repo = new CognitionRepository();
 const traverser = new GraphTraverser(repo);
@@ -34,7 +34,7 @@ async function buildChain(size: number): Promise<string> {
 }
 
 async function cleanBench() {
-  const { getPrismaClient } = await import("../src/storage/client.js");
+  const { getPrismaClient } = await import("../src/data/client.js");
   const prisma = getPrismaClient();
   await prisma.astTemplate.deleteMany();
   await prisma.cognitionEdge.deleteMany();
@@ -79,3 +79,4 @@ async function main() {
 }
 
 main().catch(console.error);
+

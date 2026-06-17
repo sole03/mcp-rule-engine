@@ -6,7 +6,7 @@
  * Copyright 2026 熊高锐 — Apache 2.0
  */
 
-import { recognizeIntent } from "../src/cognition-engine/intent-recognizer.js";
+import { recognizeIntent } from "../src/core/intent-recognizer.js";
 
 const DIFF_TEMPLATES = {
   small: "diff --git a/src/x.ts b/src/x.ts\n--- a/src/x.ts\n+++ b/src/x.ts\n@@ -1,3 +1,4 @@\n const a = 1;\n+const b = 2;\n",
@@ -48,3 +48,4 @@ async function main() {
 }
 
 main().catch(console.error);
+

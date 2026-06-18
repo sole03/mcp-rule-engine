@@ -45,6 +45,11 @@ import type { IRuleRepository } from "./repository-interfaces.js";
 export class RuleRepo implements IRuleRepository {
   async create(spec: RuleSpec & { projectId?: string }): Promise<Rule> {
     const prisma = getPrismaClient();
+    // Check for duplicate before insert (belt-and-suspenders with @@unique)
+    const existing = await prisma.rule.findFirst({
+      where: { type: spec.type, language: spec.language, pattern: spec.pattern, suggestion: spec.suggestion, status: "active" },
+    });
+    if (existing) return toRule(existing);
     const r = await prisma.rule.create({
       data: {
         projectId: spec.projectId ?? null,

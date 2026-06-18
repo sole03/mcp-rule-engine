@@ -28,7 +28,7 @@ export interface ApprovalRequest {
   config: ApprovalConfig;
   votes: ReviewerVote[];
   assignedTo: string | null;
-  expiresAt: Date; resolvedAt: Date | null;
+  expiresAt: Date; resolvedAt: Date | null;version: number;
   createdAt: Date; updatedAt: Date;
 }
 
@@ -65,26 +65,44 @@ export class ApprovalWorkflowService {
 
   async castVote(approvalId: string, reviewerId: string, decision: "APPROVED" | "REJECTED", comment?: string): Promise<ApprovalRequest> {
     const prisma = this.prisma;
-    const row = await prisma.approvalRequest.findUnique({ where: { id: approvalId } });
-    if (!row) throw new Error("Approval request not found");
-    if (row.stage !== "PENDING_REVIEW") throw new Error("Not in review: " + row.stage);
-    const readVersion = row.version ?? 0;
-    const votes: ReviewerVote[] = JSON.parse(row.votesJson);
-    const config: ApprovalConfig = JSON.parse(row.configJson);
-    const idx = votes.findIndex(v => v.reviewerId === reviewerId);
-    if (idx === -1) throw new Error("Reviewer not in list: " + reviewerId);
-    if (votes[idx].decision !== "PENDING") throw new Error("Already voted: " + votes[idx].decision);
-    votes[idx] = { reviewerId, decision, comment: comment ?? null, votedAt: new Date() };
-    const newStage = this.computeStage(votes, config);
-    const now = new Date();
-    const updateData: any = { votesJson: JSON.stringify(votes), stage: newStage, version: readVersion + 1, updatedAt: now };
-    if (newStage !== "PENDING_REVIEW") { updateData.resolvedAt = now; updateData.assignedTo = null; }
-    else { const next = votes.find(v => v.decision === "PENDING"); updateData.assignedTo = next?.reviewerId ?? null; }
-    // Optimistic concurrency: only update if version hasn't changed
-    const updated = await prisma.approvalRequest.update({ where: { id: approvalId, version: readVersion }, data: updateData });
-    logger.info({ approvalId, reviewerId, decision, newStage }, "vote cast");
-    if (newStage !== "PENDING_REVIEW") await this.dispatchWebhooks(approvalId, newStage);
-    return toApprovalRequest(updated);
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const row = await prisma.approvalRequest.findUnique({ where: { id: approvalId } });
+      if (!row) throw new Error("Approval request not found");
+      if (row.stage !== "PENDING_REVIEW") throw new Error("Not in review: " + row.stage);
+      const votes: ReviewerVote[] = JSON.parse(row.votesJson);
+      const config: ApprovalConfig = JSON.parse(row.configJson);
+      const idx = votes.findIndex(v => v.reviewerId === reviewerId);
+      if (idx === -1) throw new Error("Reviewer not in list: " + reviewerId);
+      if (votes[idx].decision !== "PENDING") throw new Error("Already voted: " + votes[idx].decision);
+      votes[idx] = { reviewerId, decision, comment: comment ?? null, votedAt: new Date() };
+      const newStage = this.computeStage(votes, config);
+      const now = new Date();
+      const currentVersion = row.version ?? 0;
+      const updateData: any = {
+        votesJson: JSON.stringify(votes), stage: newStage, updatedAt: now,
+        version: currentVersion + 1,
+      };
+      if (newStage !== "PENDING_REVIEW") { updateData.resolvedAt = now; updateData.assignedTo = null; }
+      else { const next = votes.find(v => v.decision === "PENDING"); updateData.assignedTo = next?.reviewerId ?? null; }
+      try {
+        const updated = await prisma.approvalRequest.update({
+          where: { id: approvalId, version: currentVersion },
+          data: updateData,
+        });
+        logger.info({ approvalId, reviewerId, decision, newStage }, "vote cast");
+        if (newStage !== "PENDING_REVIEW") await this.dispatchWebhooks(approvalId, newStage);
+        return toApprovalRequest(updated);
+      } catch (err: any) {
+        if (err?.code === "P2025" && attempt < maxRetries - 1) {
+          // P2025 = Prisma "Record to update not found" — concurrent update, retry
+          logger.warn({ approvalId, reviewerId, attempt }, "vote conflict, retrying");
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error("Vote failed after " + maxRetries + " retries for approval " + approvalId);
   }
 
   async escalate(approvalId: string): Promise<ApprovalRequest> {
@@ -184,6 +202,7 @@ function toApprovalRequest(row: any): ApprovalRequest {
     payload: row.payload ? JSON.parse(row.payload) : null,
     config: JSON.parse(row.configJson), votes: JSON.parse(row.votesJson),
     assignedTo: row.assignedTo, expiresAt: row.expiresAt, resolvedAt: row.resolvedAt,
+    version: row.version ?? 0,
     createdAt: row.createdAt, updatedAt: row.updatedAt,
   };
 }

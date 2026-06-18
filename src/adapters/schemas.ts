@@ -1,4 +1,3 @@
-// sentinel-fix-2026
 /**
  * Copyright 2026 熊高锐
  *

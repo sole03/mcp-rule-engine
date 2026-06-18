@@ -111,7 +111,7 @@ const RESOURCE_DEFINITIONS = [
 
 async function main() {
   const server = new Server(
-    { name: "mcp-cognition-engine", version: "1.0.0-alpha.3" },
+    { name: "mcp-cognition-engine", version: "1.0.0-alpha.4" },
     { capabilities: { tools: {}, resources: {} } },
   );
 

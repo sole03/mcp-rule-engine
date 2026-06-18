@@ -130,7 +130,7 @@ export class GovernanceCore {
 
   async health() {
     const stats = await this.getImmuneStats();
-    return { status: "ok", version: "1.0.0-alpha.2", uptime: process.uptime(), immuneStats: stats };
+    return { status: "ok", version: "1.0.0-alpha.4", uptime: process.uptime(), immuneStats: stats };
   }
 
   // ── Cleanup ─────────────────────────────────────────────

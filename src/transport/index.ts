@@ -66,7 +66,7 @@ import { getVectorStore } from "../adapters/embedding/vector-store.js";
 // ── Server ────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "mcp-cognition-engine", version: "1.0.0-alpha.2" },
+  { name: "mcp-cognition-engine", version: "1.0.0-alpha.4" },
   { capabilities: { tools: {}, resources: {} } },
 );
 

@@ -126,7 +126,7 @@ export class MetricsCollector {
 
     return {
       timestamp: new Date().toISOString(),
-      version: "1.0.0-alpha",
+      version: "1.0.0-alpha.4",
       cognition,
       amygdala,
       selfHeal,

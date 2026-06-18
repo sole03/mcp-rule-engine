@@ -194,7 +194,7 @@ async function readRulesChangelog(): Promise<{ contents: { uri: string; mimeType
     contents: [{
       uri: "cognition://rules-changelog",
       mimeType: "application/json",
-      text: JSON.stringify({ version: "1.0.0-alpha.2", updatedAt: new Date().toISOString(), changes: [] }),
+      text: JSON.stringify({ version: "1.0.0-alpha.4", updatedAt: new Date().toISOString(), changes: [] }),
     }],
   };
 }

@@ -1,6 +1,6 @@
 {
   "name": "governflow-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Protocol-agnostic governance kernel for GovernFlow — constraint DSL compiler, policy engine, COW sandbox, perception & delivery pipeline.",
   "type": "module",
   "main": "dist/index.js",

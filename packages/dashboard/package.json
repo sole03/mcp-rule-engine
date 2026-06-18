@@ -1,6 +1,6 @@
 {
   "name": "governflow-dashboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "GovernFlow dashboard — metrics collector and visualization for the AI-native governance pipeline.",
   "type": "module",
   "main": "dist/server.js",

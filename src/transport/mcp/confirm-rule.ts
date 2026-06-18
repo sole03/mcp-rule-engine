@@ -17,12 +17,36 @@
 import type { IRuleRepository } from "../../data/repository-interfaces.js";
 import type { IMetricRepository } from "../../data/repository-interfaces.js";
 import { ConfirmRuleInput } from "../../core/types.js";
+import { CognitionRepository } from "../../data/cognition-repository.js";
 
 export async function handleConfirmRule(input: ConfirmRuleInput, ruleRepo: IRuleRepository, metricRepo: IMetricRepository) {
   const rule = await ruleRepo.findById(input.ruleId);
   if (!rule) return { content: [{ type: "text", text: JSON.stringify({ error: "Rule not found" }) }], isError: true };
   switch (input.action) {
-    case "accept": await ruleRepo.updateStatus(input.ruleId, "active"); break;
+    case "accept": {
+      await ruleRepo.updateStatus(input.ruleId, "active");
+      try {
+        var cogC = new CognitionRepository();
+        var h = 0;
+        var raw = (rule.type ?? "") + ":" + (rule.pattern ?? "").replace(/s+/g, " ").trim();
+        for (var i = 0; i < raw.length; i++) { h = ((h << 5) - h) + raw.charCodeAt(i); h |= 0; }
+        cogC.createNodeWithEdges({
+          type: "CONSTRAINT",
+          semanticHash: Math.abs(h).toString(16),
+          abstractionLevel: 2,
+          payload: {
+            ruleId: rule.id, type: rule.type,
+            pattern: rule.pattern ?? "",
+            suggestion: rule.suggestion ?? "",
+            language: rule.language ?? "",
+            confidence: rule.confidence ?? "high",
+            acceptedAt: new Date().toISOString(),
+          },
+          metadata: { source: "confirm_rule", ruleConfidence: rule.confidence ?? "high" },
+        }).catch(function(){});
+      } catch (e) { /* best-effort */ }
+      break;
+    }
     case "reject": await ruleRepo.updateStatus(input.ruleId, "archived"); break;
     case "edit": {
       // Persist the edited pattern and/or suggestion

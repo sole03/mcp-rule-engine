@@ -345,6 +345,21 @@ export class CognitionRepository implements ICognitionRepository {
     await prisma.cognitionNode.delete({ where: { id } });
   }
 
+  /** Create a single edge between two cognition nodes. */
+  async createEdge(input: CognitionEdgeInput): Promise<CognitionEdgeData> {
+    const prisma = getPrismaClient();
+    const edge = await prisma.cognitionEdge.create({
+      data: {
+        sourceId: input.sourceId,
+        targetId: input.targetId,
+        relation: input.relation,
+        weight: input.weight ?? 1.0,
+        metadata: input.metadata ? JSON.stringify(input.metadata) : null,
+      },
+    });
+    return toCognitionEdge(edge);
+  }
+
   // ── Feedback Event Tracking ────────────────────────────
 
   /** Record a feedback event (async, non-blocking, fire-and-forget). */

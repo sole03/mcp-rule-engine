@@ -22,6 +22,8 @@ import { processSilent } from "../../guards/silent-mode.js";
 import { buildConfirmCard } from "../../guards/confirm-mode.js";
 import { CaptureDiffInput, RULE_GENERATION_THRESHOLDS } from "../../core/types.js";
 import { CognitionRepository } from "../../data/cognition-repository.js";
+import { recognizeIntent } from "../../core/intent-recognizer.js";
+import type { IntentResult } from "../../core/cognition-types.js";
 
 function simpleHash(s: string): string {
   let hash = 0;
@@ -29,20 +31,30 @@ function simpleHash(s: string): string {
   return hash.toString(16);
 }
 
-/** Persist a cognition node for every capture_diff so the graph learns from all diffs. */
-async function upsertCognitionNode(
+/**
+ * Persist the full cognition closure for every capture_diff:
+ *    PATTERN node  → (modified content hash)
+ *    INTENT node   → (intent recognition result)
+ *    INTENT ──CAUSES──→ PATTERN edge
+ * Best-effort: failures never block the diff pipeline.
+ */
+async function upsertCognitionClosure(
   filePath: string,
   language: string,
   projectId: string | undefined,
   modifiedHash: string,
+  originalHash: string,
+  modifiedContent: string,
   diffOpCount: number,
   ruleGenerated: boolean,
   diffStatus: string,
 ) {
   try {
     const repo = new CognitionRepository();
+
+    // ── PATTERN node (existing logic) ──
     const existing = await repo.findNodesBySemanticHash(modifiedHash);
-    const payload = {
+    const patternPayload = {
       filePath,
       language,
       projectId: projectId ?? null,
@@ -51,20 +63,64 @@ async function upsertCognitionNode(
       diffStatus,
       lastSeen: new Date().toISOString(),
     };
-    const metadata = {
+    const patternMeta = {
       source: "capture_diff",
       diffRetentionDays: RULE_GENERATION_THRESHOLDS.repeatWindowDays,
-      occurrences: (existing?.[0]?.metadata as any)?.occurrences ? (existing![0].metadata as any).occurrences + 1 : 1,
+      occurrences: (existing?.[0]?.metadata as any)?.occurrences
+        ? (existing![0].metadata as any).occurrences + 1 : 1,
     };
-    await repo.createNodeWithEdges({
+    const patternNode = await repo.createNodeWithEdges({
       type: "PATTERN",
       semanticHash: modifiedHash,
       abstractionLevel: 0,
-      payload,
-      metadata,
+      payload: patternPayload,
+      metadata: patternMeta,
+    });
+
+    // ── INTENT node ──
+    // Build a minimal unified diff for intent recognition
+    const diffLines = modifiedContent.split("\n");
+    const diffText = [
+      "diff --git a/" + filePath + " b/" + filePath,
+      "@@ -0,0 +" + diffLines.length + " @@",
+      ...diffLines.map(l => "+" + l),
+    ].join("\n");
+    const intentResult: IntentResult = await recognizeIntent(diffText, filePath);
+
+    const intentHash = simpleHash(filePath + ":" + intentResult.intent + ":" + modifiedHash);
+    const intentPayload = {
+      filePath,
+      language,
+      projectId: projectId ?? null,
+      intent: intentResult.intent,
+      confidence: intentResult.confidence,
+      reasoning: intentResult.reasoning,
+      stats: intentResult.stats,
+      lastSeen: new Date().toISOString(),
+    };
+    const intentMeta = {
+      source: "capture_diff",
+      confidence: intentResult.confidence,
+      reasoning: intentResult.reasoning,
+    };
+    const intentNode = await repo.createNodeWithEdges({
+      type: "INTENT",
+      semanticHash: intentHash,
+      abstractionLevel: 1, // FUNCTION level — bridges code to goal
+      payload: intentPayload,
+      metadata: intentMeta,
+    });
+
+    // ── INTENT ──CAUSES──→ PATTERN edge ──
+    await repo.createEdge({
+      sourceId: intentNode.id,
+      targetId: patternNode.id,
+      relation: "CAUSES",
+      weight: intentResult.confidence,
+      metadata: { source: "capture_diff", intent: intentResult.intent },
     });
   } catch {
-    // Best-effort: cognition node upsert should never block the diff pipeline
+    // Best-effort: cognition closure upsert should never block the diff pipeline
   }
 }
 
@@ -81,7 +137,7 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRule
   const limitInfo = await ruleRepo.getLimitInfo(input.projectId);
   const warnings: string[] = [];
   if (limitInfo.reached) {
-    warnings.push(`规则库已达上限：全局 ${limitInfo.globalCount}/${limitInfo.globalMax}，项目 ${limitInfo.projectCount}/${limitInfo.projectMax}。建议归档或导出旧规则。`);
+    warnings.push("规则库已达上限：全局 " + limitInfo.globalCount + "/" + limitInfo.globalMax + "，项目 " + limitInfo.projectCount + "/" + limitInfo.projectMax + "。建议归档或导出旧规则。");
   }
   const durationMs = performance.now() - startTime;
   await metricRepo.track("capture_diff", { language: input.language, opCount: diffResult.operations.length, astStatus: diffResult.status, durationMs });
@@ -117,8 +173,8 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRule
     confirmCard = card.card ?? null;
   }
 
-  // Persist cognition graph node for every diff (fire-and-forget, best-effort)
-  upsertCognitionNode(input.filePath, input.language, input.projectId, modifiedHash, diffResult.operations.length, ruleWasGenerated, diffResult.status).catch(() => {});
+  // Persist full cognition closure for every diff (fire-and-forget, best-effort)
+  upsertCognitionClosure(input.filePath, input.language, input.projectId, modifiedHash, originalHash, input.modifiedContent, diffResult.operations.length, ruleWasGenerated, diffResult.status).catch(() => {});
 
   if (mode === "silent") {
     return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: ruleWasGenerated ? "rule generated" : "diff captured", warnings: warnings.length > 0 ? warnings : undefined }) }] };

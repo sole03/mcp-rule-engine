@@ -23,6 +23,7 @@ import { computeDiffWithFallback } from "../../analysis/parsers.js";
 import { evaluateRuleCandidate } from "../../analysis/rule-generator.js";
 import { detectConflict } from "../../governance/arbitrator.js";
 import { AnalyzeResult, SKIP_PATTERNS } from "../../core/types.js"
+import { CognitionRepository } from "../../data/cognition-repository.js";
 import { AnalyzeWorkspaceInput, Rule, RuleSpec, RuleConfidence, RULE_GENERATION_THRESHOLDS } from "../../core/types.js";
 
 function normalizePath(p: string): string { return p.replace(/\\/g, "/"); }
@@ -144,6 +145,26 @@ export async function handleAnalyzeWorkspace(
       if (!limitInfo.reached) {
         result.generatedRules.push({ rule: evalR.ruleCandidate, filePath: fp });
       }
+
+      // Persist PATTERN cognition node for each file diff
+      try {
+        var cog2 = new CognitionRepository();
+        cog2.createNodeWithEdges({
+          type: "PATTERN",
+          semanticHash: modHash,
+          abstractionLevel: 0,
+          payload: {
+            filePath: fp, language: lang,
+            diffOpCount: diffR.operations.length,
+            astStatus: diffR.status,
+            diffType: diffR.operations[0]?.type ?? "update",
+            ruleGenerated: !!(evalR.generate && evalR.ruleCandidate),
+            lastSeen: new Date().toISOString(),
+          },
+          metadata: { source: "analyze_workspace", baseCommit: input.baseCommit },
+        }).catch(function(){});
+      } catch (e) { /* best-effort */ }
+
       result.analyzedFiles++;
     } catch (err) {
       result.errors.push({ filePath: fp, error: String(err) });

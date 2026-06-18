@@ -4,9 +4,8 @@ on:
   pull_request:
     branches: [main, develop]
     paths:
-      - "src/cognition-engine/**"
-      - "src/storage/cognition-repository.ts"
-      - "src/storage/cache.ts"
+      - "src/core/**"
+      - "src/data/**"
       - "benchmarks/**"
   push:
     branches: [main]
@@ -22,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -34,12 +33,12 @@ jobs:
       - name: Initialize test database
         run: npx prisma db push --skip-generate
         env:
-          DATABASE_URL: "file:./prisma/bench.db"
+          DATABASE_URL: "file:bench.db"
 
       - name: Run benchmarks
         run: npm run bench
         env:
-          DATABASE_URL: "file:./prisma/bench.db"
+          DATABASE_URL: "file:bench.db"
 
       - name: Check benchmark regression
         run: |

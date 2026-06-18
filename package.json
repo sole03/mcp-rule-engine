@@ -6,6 +6,7 @@
   "main": "dist/transport/index.js",
   "scripts": {
     "build": "tsc && node -e \"const fs=require('fs'),path=require('path');function walk(d){for(const f of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,f.name);if(f.isDirectory())walk(p);else if(f.name.endsWith('.js')){const c=fs.readFileSync(p,'utf8');if(!c.endsWith('\\n'))fs.writeFileSync(p,c+'\\n','utf8')}}}walk('dist')\"",
+    "prepare": "npm run build",
     "postinstall": "npx prisma generate",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",

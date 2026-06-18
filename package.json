@@ -6,7 +6,6 @@
   "main": "dist/transport/index.js",
   "scripts": {
     "build": "tsc && node -e \"const fs=require('fs'),path=require('path');function walk(d){for(const f of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,f.name);if(f.isDirectory())walk(p);else if(f.name.endsWith('.js')){const c=fs.readFileSync(p,'utf8');if(!c.endsWith('\\n'))fs.writeFileSync(p,c+'\\n','utf8')}}}walk('dist')\"",
-    "prepare": "npm run build",
     "postinstall": "npx prisma generate",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
@@ -20,7 +19,8 @@
     "bench": "npx tsx benchmarks/intent-recognizer.bench.ts && npx tsx benchmarks/graph-traverser.bench.ts && node -e \"const{readFileSync,writeFileSync}=require('fs');const{join}=require('path');const d=join('benchmarks','results');const i=readFileSync(join(d,'intent.md'),'utf8');const g=readFileSync(join(d,'graph.md'),'utf8');writeFileSync(join(d,'latest.md'),i.trim()+'\\\\n'+g.trim()+'\\\\n','utf8')\"",
     "start:http": "node dist/transport/http-server.js",
     "build:core": "cd packages/core && npx tsc",
-    "build:all": "npm run build && npm run build:core"
+    "build:all": "npm run build && npm run build:core",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

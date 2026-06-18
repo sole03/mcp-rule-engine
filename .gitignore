@@ -9,6 +9,13 @@ logs/
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
+
+# Nested prisma output (safety net — Prisma resolves file: URLs relative to schema dir)
+prisma/prisma/
+
+# Temp directories
+test-pack/
 
 *.tgz
 

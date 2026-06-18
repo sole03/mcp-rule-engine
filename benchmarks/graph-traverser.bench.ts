@@ -56,7 +56,7 @@ async function cleanBench() {
 }
 
 async function main() {
-  process.env.DATABASE_URL = "file:./prisma/bench.db";
+  process.env.DATABASE_URL = "file:bench.db";
   await cleanBench();
 
   log("# Graph Traversal Benchmarks\n");

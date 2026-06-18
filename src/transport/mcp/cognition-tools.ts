@@ -33,7 +33,8 @@ import type { TraversalOptions } from "../../core/cognition-types.js";
 // ── Input Types ─────────────────────────────────────────────
 
 interface CognitionQueryInput {
-  contextHash: string;
+  contextHash?: string;
+  semanticHash?: string;
   intentHint?: "REFACTOR" | "BUGFIX" | "BOILERPLATE";
   maxDepth?: number;
 }
@@ -60,15 +61,17 @@ export async function handleCognitionQuery(
   input: CognitionQueryInput,
 ): Promise<{ content: { type: string; text: string }[] }> {
   try {
-    if (!input.contextHash) {
-      return { content: [{ type: "text", text: JSON.stringify({ error: "contextHash is required" }) }] };
+    // Resolve contextHash: accept semanticHash as alias
+    const contextHash = input.contextHash || input.semanticHash;
+    if (!contextHash) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Either contextHash or semanticHash is required" }) }] };
     }
     const repo = new CognitionRepository();
     const traverser = new GraphTraverser(repo);
 
     // If intentHint is provided, use it; otherwise compute from contextHash heuristic
     let intentHint = input.intentHint;
-    if (!intentHint && input.contextHash.includes("lint")) {
+    if (!intentHint && contextHash.includes("lint")) {
       intentHint = "BUGFIX";
     }
 
@@ -78,7 +81,7 @@ export async function handleCognitionQuery(
     };
 
     // Use empty language/path — the hash is pre-computed
-    const result = await traverser.traverse("*", "unknown.ts", input.contextHash, options, input.contextHash);
+    const result = await traverser.traverse("*", "unknown.ts", contextHash, options, contextHash);
 
     // Record feedback event asynchronously (fire-and-forget)
     repo.recordFeedbackEvent(result.nodes[0]?.node?.id ?? "unknown").catch(() => {});

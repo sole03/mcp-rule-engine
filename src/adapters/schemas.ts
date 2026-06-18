@@ -1,3 +1,4 @@
+// sentinel-fix-2026
 /**
  * Copyright 2026 熊高锐
  *
@@ -54,14 +55,18 @@ export const QueryRulesSchema = z.object({
 
 export const ConfirmRuleSchema = z.object({
   ruleId: z.string().min(1, "ruleId is required"),
-  action: z.enum(["accept", "reject", "edit", "skip"]),
+  action: z.enum(["accept", "reject", "edit", "skip"], {
+    message: "action must be one of: accept, reject, edit, skip",
+  }),
   editedPattern: z.string().optional(),
   editedSuggestion: z.string().optional(),
 });
 
 export const ResolveConflictSchema = z.object({
   conflictId: z.string().min(1, "conflictId is required"),
-  resolution: z.enum(["keep_a", "keep_b", "merge", "skip"]),
+  resolution: z.enum(["keep_a", "keep_b", "merge", "skip"], {
+    message: "resolution must be one of: keep_a, keep_b, merge, skip",
+  }),
   batchAllSession: z.boolean().optional(),
 });
 
@@ -77,10 +82,14 @@ export const ListRulesSchema = z.object({
 // ── Cognition Engine Tools ─────────────────────────────────
 
 export const CognitionQuerySchema = z.object({
-  contextHash: z.string().min(1, "contextHash is required"),
+  contextHash: z.string().optional(),
+  semanticHash: z.string().optional(),
   intentHint: z.enum(["REFACTOR", "BUGFIX", "BOILERPLATE"]).optional(),
   maxDepth: z.number().int().positive().optional(),
-});
+}).refine(
+  (data) => data.contextHash || data.semanticHash,
+  { message: "Either contextHash or semanticHash is required" },
+);
 
 export const CognitionValidateSchema = z.object({
   nodeId: z.string().min(1, "nodeId is required"),
@@ -132,10 +141,14 @@ export function validateInput<T>(
 ): { success: true; data: T } | { success: false; error: { content: { type: string; text: string }[] } } {
   const result = schema.safeParse(args);
   if (!result.success) {
-    const details = result.error.issues.map(e => ({
-      field: e.path.join(".") || "(root)",
-      message: e.message,
-    }));
+    const details = result.error.issues.map(e => {
+      const field = e.path.join(".") || "(root)";
+      // Translate Zod's generic "Required" to a field-aware message
+      const message = e.code === "invalid_type" && e.message === "Required"
+        ? `${field} is required`
+        : e.message;
+      return { field, message };
+    });
     return {
       success: false,
       error: {

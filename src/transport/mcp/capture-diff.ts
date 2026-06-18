@@ -21,11 +21,51 @@ import { computeDiffWithFallback } from "../../analysis/parsers.js";
 import { processSilent } from "../../guards/silent-mode.js";
 import { buildConfirmCard } from "../../guards/confirm-mode.js";
 import { CaptureDiffInput, RULE_GENERATION_THRESHOLDS } from "../../core/types.js";
+import { CognitionRepository } from "../../data/cognition-repository.js";
 
 function simpleHash(s: string): string {
   let hash = 0;
   for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
   return hash.toString(16);
+}
+
+/** Persist a cognition node for every capture_diff so the graph learns from all diffs. */
+async function upsertCognitionNode(
+  filePath: string,
+  language: string,
+  projectId: string | undefined,
+  modifiedHash: string,
+  diffOpCount: number,
+  ruleGenerated: boolean,
+  diffStatus: string,
+) {
+  try {
+    const repo = new CognitionRepository();
+    const existing = await repo.findNodesBySemanticHash(modifiedHash);
+    const payload = {
+      filePath,
+      language,
+      projectId: projectId ?? null,
+      diffOpCount,
+      ruleGenerated,
+      diffStatus,
+      lastSeen: new Date().toISOString(),
+    };
+    const metadata = {
+      source: "capture_diff",
+      diffRetentionDays: RULE_GENERATION_THRESHOLDS.repeatWindowDays,
+      occurrences: (existing?.[0]?.metadata as any)?.occurrences ? (existing![0].metadata as any).occurrences + 1 : 1,
+    };
+    await repo.createNodeWithEdges({
+      type: "PATTERN",
+      semanticHash: modifiedHash,
+      abstractionLevel: 0,
+      payload,
+      metadata,
+    });
+  } catch {
+    // Best-effort: cognition node upsert should never block the diff pipeline
+  }
 }
 
 export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRuleRepository, diffLogRepo: IDiffLogRepository, metricRepo: IMetricRepository, mode: "silent" | "confirm") {
@@ -45,11 +85,16 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRule
   }
   const durationMs = performance.now() - startTime;
   await metricRepo.track("capture_diff", { language: input.language, opCount: diffResult.operations.length, astStatus: diffResult.status, durationMs });
+
+  let ruleWasGenerated = false;
+  let confirmCard: any = null;
+
   if (mode === "silent") {
     const result = await processSilent(diffResult.operations, input.language, distinctFiles, repeatCount, RULE_GENERATION_THRESHOLDS.repeatWindowDays, metricRepo);
     if (!limitInfo.reached && result.generatedRule && result.ruleSpec) {
       await ruleRepo.create({ ...result.ruleSpec, projectId: input.projectId });
       await metricRepo.track("rule_auto_generated", { language: input.language, source: "capture_diff" });
+      ruleWasGenerated = true;
     }
     // Fallback: even when no high-confidence rule is generated, capture a low-confidence
     // candidate into the rule repo so the cognition graph can learn from this diff.
@@ -67,9 +112,17 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRule
         catch { /* best-effort; rule may conflict */ }
       }
     }
-    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: result.notification ?? "fallback: low-confidence rule captured", warnings: warnings.length > 0 ? warnings : undefined }) }] };
   } else {
     const card = await buildConfirmCard(diffResult.operations, input.language, distinctFiles, repeatCount, RULE_GENERATION_THRESHOLDS.repeatWindowDays, metricRepo);
-    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, confirmCard: card.card ?? null, warnings: warnings.length > 0 ? warnings : undefined }) }] };
+    confirmCard = card.card ?? null;
+  }
+
+  // Persist cognition graph node for every diff (fire-and-forget, best-effort)
+  upsertCognitionNode(input.filePath, input.language, input.projectId, modifiedHash, diffResult.operations.length, ruleWasGenerated, diffResult.status).catch(() => {});
+
+  if (mode === "silent") {
+    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: ruleWasGenerated ? "rule generated" : "diff captured", warnings: warnings.length > 0 ? warnings : undefined }) }] };
+  } else {
+    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, confirmCard, warnings: warnings.length > 0 ? warnings : undefined }) }] };
   }
 }

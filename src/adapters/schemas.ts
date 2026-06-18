@@ -38,7 +38,7 @@ export const AnalyzeWorkspaceSchema = z.object({
 
 export const CaptureDiffSchema = z.object({
   filePath: z.string().min(1, "filePath is required"),
-  originalContent: z.string().min(1, "originalContent is required"),
+  originalContent: z.string().optional().default(""),
   modifiedContent: z.string().min(1, "modifiedContent is required"),
   language: z.string().min(1, "language is required"),
   projectId: z.string().optional(),

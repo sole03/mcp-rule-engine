@@ -34,6 +34,7 @@ function isSkipped(filePath: string): boolean {
 const EXT_LANG: Record<string, string> = {
   ts: "typescript", tsx: "tsx", js: "javascript", jsx: "javascript",
   mjs: "javascript", cjs: "javascript", py: "python", go: "go",
+  java: "java", vue: "vue", xml: "xml", yml: "yml", yaml: "yaml",
 };
 
 function detectLang(filePath: string): string | null {

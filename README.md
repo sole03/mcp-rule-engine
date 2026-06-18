@@ -187,11 +187,7 @@ import { MerlionBridge, RegoCompiler, CanaryController } from "governflow-core";
 
 ## 文档
 
-| 文档 | 说明 |
-|------|------|
-| [OPTIMIZATION.md](./OPTIMIZATION.md) | 四维优化矩阵 — 痛点·举措·收益 |
-| [ASSEMBLY_OVER_BUILD.md](./ASSEMBLY_OVER_BUILD.md) | Implementation Spec — 战略对齐 + 技术选型 |
-| [TRACEABILITY.md](./TRACEABILITY.md) | 理论↔工程双向追溯 — 13/13 ✓ |
+完整架构设计与开发文档见 [GitHub Wiki](https://github.com/sole03/governflow/wiki).
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "name": "governflow",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "description": "GovernFlow — AI-native code governance pipeline. Four-layer assemble-over-build architecture.",
   "type": "module",
   "main": "dist/transport/index.js",
